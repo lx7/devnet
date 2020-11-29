@@ -13,8 +13,13 @@ const (
 	MessageTypeInfo MessageType = "info"
 )
 
+type Message interface {
+	MarshalJSON() ([]byte, error)
+	UnmarshalJSON([]byte) error
+}
+
 // Unmarshal provides unmarshaling for arbitrary JSON message types
-func Unmarshal(data []byte) (interface{}, error) {
+func Unmarshal(data []byte) (Message, error) {
 	peek := struct{ Type MessageType }{}
 	if err := json.Unmarshal(data, &peek); err != nil {
 		return nil, err
@@ -22,16 +27,17 @@ func Unmarshal(data []byte) (interface{}, error) {
 
 	switch peek.Type {
 	case MessageTypeSDP:
-		var final SDPMessage
-		err := json.Unmarshal(data, &final)
-		return final, err
-	case MessageTypeInfo:
-		var final InfoMessage
+		final := &SDPMessage{}
 		err := json.Unmarshal(data, &final)
 		return final, err
 	}
 
-	return peek, InvalidMessageTypeError{_type: peek.Type, _json: data}
+	return nil, InvalidMessageTypeError{_type: peek.Type, _json: data}
+}
+
+// Marshal provides marshaling of arbitrary JSON message types
+func Marshal(m Message) ([]byte, error) {
+	return m.MarshalJSON()
 }
 
 // An InvalidMessageTypeError occurrs when Unmarshal is invoked on a JSON

@@ -9,9 +9,10 @@ import (
 // SDPMessage implements a routable container for Session Description Protocol
 // messages on the WebSocket transport layer
 type SDPMessage struct {
-	Src string                    `json:"src"`
-	Dst string                    `json:"dst"`
-	SDP webrtc.SessionDescription `json:"sdp"`
+	Type MessageType               `json:"type"`
+	Src  string                    `json:"src"`
+	Dst  string                    `json:"dst"`
+	SDP  webrtc.SessionDescription `json:"sdp"`
 }
 
 // MarshalJSON provides JSON marshaling for SDPMessage

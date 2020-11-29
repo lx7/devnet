@@ -7,7 +7,7 @@ import (
 	"sync"
 
 	"github.com/lx7/devnet/internal/signaling"
-	"github.com/lx7/devnet/internal/transport"
+	"github.com/lx7/devnet/transport"
 
 	log "github.com/sirupsen/logrus"
 )
