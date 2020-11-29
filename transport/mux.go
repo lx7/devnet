@@ -11,13 +11,14 @@ import (
 )
 
 // Mux provides parsing and dispatching of signaling messages.
-// Consumers can register handler functions for individual message types.
+// A consumer implementing the Consumer interface{} can be registered
+// to process incoming messages.
 type Mux struct {
 	socket   *Socket
 	consumer Consumer
 }
 
-// NewMux returns a new mux instance for s. Consumer interface functions
+// NewMux returns a new mux instance for s. Consumer interface methods
 // are invoked on message retrieval.
 func NewMux(s *Socket, c Consumer) *Mux {
 	m := &Mux{
