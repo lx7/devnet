@@ -15,7 +15,7 @@ func init() {
 	log.SetLevel(log.ErrorLevel)
 }
 
-func TestWebsocket(t *testing.T) {
+func TestServer(t *testing.T) {
 	conf.Set("users.testuser",
 		"09d9623a149a4a0c043befcb448c9c3324be973230188ba412c008a2929f31d0")
 
