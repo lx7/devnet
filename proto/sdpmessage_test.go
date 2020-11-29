@@ -14,7 +14,7 @@ func init() {
 	log.SetLevel(log.ErrorLevel)
 }
 
-func TestMarshal(t *testing.T) {
+func TestMarshalSDPMessage(t *testing.T) {
 	cases := []struct {
 		desc string
 		data SDPMessage
@@ -55,7 +55,7 @@ func TestMarshal(t *testing.T) {
 	}
 }
 
-func TestUnmarshal(t *testing.T) {
+func TestUnmarshalSDPMessage(t *testing.T) {
 	cases := []struct {
 		desc string
 		json string
