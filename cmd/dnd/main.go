@@ -18,9 +18,7 @@ func init() {
 	})
 }
 
-func configure() {
-	confpath := fmt.Sprintf("/etc/%s/config.yaml", appName)
-
+func configure(confpath string) {
 	flag.StringP("loglevel", "l", "info", "Log level")
 	flag.StringP("config", "c", confpath, "Path to config file")
 	flag.Parse()
@@ -39,9 +37,12 @@ func configure() {
 	}
 }
 
-func main() {
-	configure()
-
+func run() {
 	s := server.New(conf.GetString("server.addr"))
 	s.Serve(conf.GetString("server.wspath"))
+}
+
+func main() {
+	configure(fmt.Sprintf("/etc/%s/config.yaml", appName))
+	run()
 }
