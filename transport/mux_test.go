@@ -57,10 +57,6 @@ type mockReadWriter struct {
 	echo chan []byte
 }
 
-func (s *mockReadWriter) Ready() bool {
-	return true
-}
-
 func (s *mockReadWriter) ReadMessage() (m []byte, err error) {
 	m = <-s.echo
 	return m, nil

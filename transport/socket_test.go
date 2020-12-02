@@ -19,7 +19,7 @@ func init() {
 	log.SetLevel(log.ErrorLevel)
 }
 
-func TestSocket_NotReady(t *testing.T) {
+func TestSocket_NotConnected(t *testing.T) {
 	socket := &Socket{}
 	defer socket.Close()
 
@@ -61,7 +61,7 @@ func TestSocket_EchoReconnect(t *testing.T) {
 	socket := Dial(url, nil)
 	defer socket.Close()
 	time.Sleep(100 * time.Millisecond)
-	require.Equal(t, true, socket.Ready(), "socket should be ready")
+	require.Equal(t, true, socket.Connected(), "socket should be connected")
 
 	msg := []byte("-- { message } //")
 

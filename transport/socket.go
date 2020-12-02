@@ -86,17 +86,9 @@ func Dial(url string, h http.Header) *Socket {
 // interface
 // ---------------------------------------------------------------------------
 
-// Ready returns true if a connection is established, otherwise false.
-func (s *Socket) Ready() bool {
-	s.RLock()
-	defer s.RUnlock()
-
-	return s.connected
-}
-
 // ReadMessage reads a single message from the socket
 func (s *Socket) ReadMessage() (data []byte, err error) {
-	if !s.Ready() {
+	if !s.Connected() {
 		return data, ErrWSNotConnected
 	}
 	mt, data, err := s.ws.ReadMessage()
@@ -121,7 +113,8 @@ func (s *Socket) ReadMessage() (data []byte, err error) {
 // WriteMessage writes a single message to the socket. The socket is locked
 // during write operations.
 func (s *Socket) WriteMessage(data []byte) error {
-	if !s.Ready() {
+	log.Trace("send data: ", string(data))
+	if !s.Connected() {
 		return ErrWSNotConnected
 	}
 	s.Lock()
@@ -153,6 +146,18 @@ func (s *Socket) Close() {
 	s.Unlock()
 
 	s.setConnected(false)
+}
+
+// ---------------------------------------------------------------------------
+// exported
+// ---------------------------------------------------------------------------
+
+// Connected returns true if a websocket connection is established, else false
+func (s *Socket) Connected() bool {
+	s.RLock()
+	defer s.RUnlock()
+
+	return s.connected
 }
 
 // ---------------------------------------------------------------------------
