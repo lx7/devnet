@@ -18,7 +18,13 @@ run:
 test:
 	go test ./...
 
-release: test $(PLATFORMS)
+check:
+	go vet
+	errcheck ./...
+	golint ./...
+	staticcheck ./...
+
+release: check test $(PLATFORMS)
 
 $(PLATFORMS):
 	GOOS=$(os) GOARCH=$(arch) go build -o '$(DISTDIR)/$(APP)-$(os)-$(arch)' '$(CMDDIR)'
@@ -33,5 +39,9 @@ clean:
 	rm -rf ${DISTDIR}
 	find -H . -type f -name "coverage.out" -delete
 	find -H . -type f -name "coverage.html" -delete
+	go mod tidy
+
+deps:
+	go get honnef.co/go/tools/cmd/staticcheck
 
 .PHONY: run release $(PLATFORMS) clean
