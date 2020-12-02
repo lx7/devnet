@@ -1,34 +1,30 @@
 package transport
 
 import (
-	"net/http"
-	"net/http/httptest"
-	"strings"
 	"testing"
 	"time"
 
 	"github.com/lx7/devnet/proto"
+
 	"github.com/pion/webrtc/v2"
+	"github.com/stretchr/testify/mock"
 )
 
-func init() {
-	//log.SetLevel(log.ErrorLevel)
-}
-
 func TestMux(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(echo))
-	defer server.Close()
-
-	url := "ws" + strings.TrimPrefix(server.URL, "http")
-
-	socket := Dial(url, nil)
-	time.Sleep(100 * time.Millisecond)
-	defer socket.Close()
-
-	c := &testConsumer{
-		SDPReceived: make(chan bool),
+	// set up mocks
+	rw := &mockReadWriter{
+		echo: make(chan []byte),
 	}
-	mux := NewMux(socket, c)
+	defer rw.Close()
+
+	consumer := &mockConsumer{}
+
+	// create new mux instance and start main loop
+	mux := &Mux{
+		ReadWriter: rw,
+		Consumer:   consumer,
+	}
+
 	go func() {
 		err := mux.Receive()
 		if err != nil {
@@ -44,24 +40,47 @@ func TestMux(t *testing.T) {
 			SDP:  "sdp",
 		},
 	}
+
+	// define expectations
+	consumer.On("HandleSDP", msg).Return()
+
+	// run test
 	mux.Send(msg)
+	time.Sleep(10 * time.Millisecond)
 
-	select {
-	case ok := <-c.SDPReceived:
-		if !ok {
-			t.Errorf("sdp message delivery")
-		}
-		socket.Close()
-		time.Sleep(100 * time.Millisecond)
-	case <-time.After(100 * time.Millisecond):
-		t.Errorf("sdp message timeout")
-	}
+	// verify the expectations were met
+	consumer.AssertExpectations(t)
 }
 
-type testConsumer struct {
-	SDPReceived chan bool
+type mockReadWriter struct {
+	mock.Mock
+	echo chan []byte
 }
 
-func (c *testConsumer) HandleSDP(m *proto.SDPMessage) {
-	c.SDPReceived <- true
+func (s *mockReadWriter) Ready() bool {
+	return true
+}
+
+func (s *mockReadWriter) ReadMessage() (m []byte, err error) {
+	m = <-s.echo
+	return m, nil
+}
+
+func (s *mockReadWriter) WriteMessage(m []byte) error {
+	s.echo <- m
+	return nil
+}
+
+func (s *mockReadWriter) Close() {
+}
+
+type mockConsumer struct {
+	mock.Mock
+}
+
+func (s *mockConsumer) HandleSDP(m *proto.SDPMessage) {
+	s.Called(m)
+}
+
+func (s *mockConsumer) HandleClose() {
 }

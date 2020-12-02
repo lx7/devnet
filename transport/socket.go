@@ -11,19 +11,40 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+// Socket implements the MessageReadWriter interface and provides websocket
+// connectivity.
+type Socket struct {
+	sync.RWMutex
+	ws           *websocket.Conn
+	upgrader     *websocket.Upgrader
+	dialer       *websocket.Dialer
+	dialerURL    string
+	dialerHeader http.Header
+	connected    bool
+}
+
 const (
-	KeepaliveInterval    = 25 * time.Second
-	ReconnectInterval    = 5 * time.Second
-	ReceiveRetryInterval = 100 * time.Millisecond
-	SendRetryInterval    = ReconnectInterval * 2
-	HandshakeTimeout     = 20 * time.Second
+	keepaliveInterval    = 25 * time.Second
+	reconnectInterval    = 5 * time.Second
+	receiveRetryInterval = 100 * time.Millisecond
+	sendRetryInterval    = reconnectInterval * 2
+	handshakeTimeout     = 20 * time.Second
 )
 
 var (
-	ErrNotConnected = errors.New("websocket: not connected")
+	// ErrWSNotConnected occurrs on invocation of ReadMessage() or
+	// WriteMessage() without the WebSocket connection already established.
+	ErrWSNotConnected = errors.New("websocket: not connected")
+
+	//ErrInvalidWSMessagetype is caused by a websocket message of unknown type.
+	ErrInvalidWSMessageType = errors.New("websocket: invalid message type")
 )
 
-// Upgrade returns a new websocket for an incoming http connection.
+// ---------------------------------------------------------------------------
+// constructors
+// ---------------------------------------------------------------------------
+
+// Upgrade returns a new socket for an incoming http connection.
 func Upgrade(w http.ResponseWriter, r *http.Request) (*Socket, error) {
 	s := &Socket{
 		upgrader: &websocket.Upgrader{
@@ -34,8 +55,15 @@ func Upgrade(w http.ResponseWriter, r *http.Request) (*Socket, error) {
 			},
 		},
 	}
-	err := s.Upgrade(w, r, nil)
-	return s, err
+
+	ws, err := s.upgrader.Upgrade(w, r, nil)
+	if err != nil {
+		return nil, err
+	}
+	ws.SetCloseHandler(s.closeHandler)
+	s.ws = ws
+	s.connected = true
+	return s, nil
 }
 
 // Dial connects to url and returns a new websocket.
@@ -43,130 +71,120 @@ func Dial(url string, h http.Header) *Socket {
 	s := &Socket{
 		dialer: &websocket.Dialer{
 			Proxy:            http.ProxyFromEnvironment,
-			HandshakeTimeout: HandshakeTimeout,
+			HandshakeTimeout: handshakeTimeout,
 		},
 	}
 
 	// TODO: enable verification as soon as the endpoint has a valid cert
 	s.dialer.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
 
-	s.Dial(url, h)
+	s.dial(url, h)
 	return s
 }
 
-// Socket provides websocket connectivity.
-type Socket struct {
-	ws           *websocket.Conn
-	upgrader     *websocket.Upgrader
-	dialer       *websocket.Dialer
-	dialerUrl    string
-	dialerHeader http.Header
-	mu           sync.RWMutex
-	connected    bool
+// ---------------------------------------------------------------------------
+// interface
+// ---------------------------------------------------------------------------
+
+// Ready returns true if a connection is established, otherwise false.
+func (s *Socket) Ready() bool {
+	s.RLock()
+	defer s.RUnlock()
+
+	return s.connected
 }
 
-// Upgrade upgrades an existing http connection to the websocket protocol.
-// The socket is locked during upgrade.
-func (s *Socket) Upgrade(w http.ResponseWriter, r *http.Request, h http.Header) error {
-	ws, err := s.upgrader.Upgrade(w, r, h)
-	if err != nil {
-		log.Error("upgrade: ", err)
-		return err
+// ReadMessage reads a single message from the socket
+func (s *Socket) ReadMessage() (data []byte, err error) {
+	if !s.Ready() {
+		return data, ErrWSNotConnected
 	}
-	s.mu.Lock()
-	s.ws = ws
-	s.connected = true
-	s.mu.Unlock()
-	return nil
+	mt, data, err := s.ws.ReadMessage()
+
+	if err != nil {
+		if websocket.IsCloseError(err, websocket.CloseNormalClosure) {
+			log.Info("connection closed")
+		}
+		if s.dialer != nil {
+			s.reconnect()
+		}
+		return nil, nil
+	}
+
+	if mt != websocket.TextMessage {
+		return nil, ErrInvalidWSMessageType
+	}
+
+	return data, err
 }
 
-// Dial requests url to establish a websocket connection. The socket is locked
-// while the connection is being established.
-func (s *Socket) Dial(url string, h http.Header) {
+// WriteMessage writes a single message to the socket. The socket is locked
+// during write operations.
+func (s *Socket) WriteMessage(data []byte) error {
+	if !s.Ready() {
+		return ErrWSNotConnected
+	}
+	s.Lock()
+	err := s.ws.WriteMessage(websocket.TextMessage, data)
+	s.Unlock()
+	if err != nil && s.dialer != nil {
+		s.reconnect()
+	}
+	return err
+}
+
+// Close writes a close message to the socket to allow the other endpoint to
+// shut down. After a short delay the connection will be terminated.
+func (s *Socket) Close() {
+	s.Lock()
+	if s.ws != nil {
+		if err := s.ws.WriteMessage(
+			websocket.CloseMessage,
+			websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""),
+		); err != nil {
+			log.Error("closing: ", err)
+		}
+
+		time.Sleep(10 * time.Millisecond)
+		if err := s.ws.Close(); err != nil {
+			log.Error("closing: ", err)
+		}
+	}
+	s.Unlock()
+
+	s.setConnected(false)
+}
+
+// ---------------------------------------------------------------------------
+// utility
+// ---------------------------------------------------------------------------
+
+func (s *Socket) dial(url string, h http.Header) {
 	log.Info("connecting: ", url)
-	s.dialerUrl = url
+	s.dialerURL = url
 	s.dialerHeader = h
 
 	go func() {
 		for {
 			ws, _, err := s.dialer.Dial(url, h)
 			if err == nil {
-				s.mu.Lock()
+				ws.SetCloseHandler(s.closeHandler)
+				s.Lock()
 				s.ws = ws
 				s.connected = true
 				s.keepAlive()
-				s.mu.Unlock()
+				s.Unlock()
 				return
-			} else {
-				log.Error("websocket: ", err)
-				time.Sleep(ReconnectInterval)
 			}
+			log.Error("dial: ", err)
+			time.Sleep(reconnectInterval)
 		}
 	}()
 }
 
-// CloseAndDial closes s and requests url to establish a new websocket
-// connection.
-func (s *Socket) CloseAndDial() {
+func (s *Socket) reconnect() {
 	s.Close()
-	s.Dial(s.dialerUrl, s.dialerHeader)
-}
-
-// Close writes a close message to the socket to allow the other endpoint to
-// shut down. After a short delay the connection will be terminated.
-func (s *Socket) Close() {
-	s.mu.Lock()
-	if s.ws != nil {
-		s.ws.WriteMessage(
-			websocket.CloseMessage,
-			websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""),
-		)
-		select {
-		case <-time.After(time.Second):
-		}
-		s.ws.Close()
-	}
-	s.mu.Unlock()
-
-	s.setConnected(false)
-}
-
-// Connected returns true if a connection is established, otherwise false.
-func (s *Socket) Connected() bool {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-
-	return s.connected
-}
-
-// ReadMessage reads a single message from the socket
-func (s *Socket) ReadMessage() (mt int, data []byte, err error) {
-	err = ErrNotConnected
-	if s.Connected() {
-		mt, data, err = s.ws.ReadMessage()
-		if err == nil {
-			log.Trace("recv data: ", string(data))
-		} else if s.dialer != nil {
-			s.CloseAndDial()
-		}
-	}
-	return
-}
-
-// WriteMessage writes a single message to the socket. The socket is locked
-// during write operations.
-func (s *Socket) WriteMessage(mt int, data []byte) error {
-	log.Trace("send data: ", string(data))
-	if s.Connected() {
-		s.mu.Lock()
-		err := s.ws.WriteMessage(mt, data)
-		s.mu.Unlock()
-		if err != nil && s.dialer != nil {
-			s.CloseAndDial()
-		}
-		return err
-	}
-	return ErrNotConnected
+	s.dial(s.dialerURL, s.dialerHeader)
 }
 
 func (s *Socket) keepAlive() {
@@ -178,25 +196,30 @@ func (s *Socket) keepAlive() {
 
 	go func() {
 		for {
-			s.mu.Lock()
-			err := s.ws.WriteMessage(websocket.PingMessage, []byte("keepalive"))
-			s.mu.Unlock()
+			s.Lock()
+			err := s.ws.WriteMessage(websocket.PingMessage, []byte("ping"))
+			s.Unlock()
 			if err != nil {
 				s.Close()
 				return
 			}
-			if time.Now().Sub(lastResponse) > KeepaliveInterval*2 {
+			if time.Since(lastResponse) > keepaliveInterval*2 {
 				s.Close()
 				return
 			}
-			time.Sleep(KeepaliveInterval)
+			time.Sleep(keepaliveInterval)
 		}
 	}()
 }
 
 func (s *Socket) setConnected(state bool) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	s.Lock()
+	defer s.Unlock()
 
 	s.connected = state
+}
+
+func (s *Socket) closeHandler(_ int, _ string) error {
+	s.setConnected(false)
+	return nil
 }
