@@ -1,37 +1,36 @@
 package proto
 
 import (
-	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestError(t *testing.T) {
-	cases := []struct {
-		desc string
-		err  error
-		exp  string
+	tests := []struct {
+		desc    string
+		give    error
+		wantStr string
 	}{
 		{
 			desc: "InvalidMessageType",
-			err: InvalidMessageTypeError{
-				_type: MessageTypeSDP,
+			give: InvalidMessageTypeError{
+				_type: messageTypeSDP,
 				_json: []byte("{}"),
 			},
-			exp: "unknown message type",
+			wantStr: "unknown message type",
 		},
 		{
 			desc: "UnexpectedMessageType",
-			err: UnexpectedMessageTypeError{
+			give: UnexpectedMessageTypeError{
 				_type: "other",
-				_exp:  MessageTypeSDP,
+				_exp:  messageTypeSDP,
 			},
-			exp: "unexpected message type",
+			wantStr: "unexpected message type",
 		},
 	}
 
-	for _, c := range cases {
-		if got := c.err.Error(); !strings.Contains(got, c.exp) {
-			t.Errorf("%v: expected substring: '%v' got: '%v'", c.desc, c.exp, got)
-		}
+	for _, tt := range tests {
+		assert.Contains(t, tt.give.Error(), tt.wantStr)
 	}
 }

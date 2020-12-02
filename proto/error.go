@@ -7,7 +7,7 @@ import (
 // An InvalidMessageTypeError occurrs when Unmarshal is invoked on a JSON
 // literal of unknown type
 type InvalidMessageTypeError struct {
-	_type MessageType
+	_type messageType
 	_json []byte
 }
 
@@ -18,7 +18,7 @@ func (e InvalidMessageTypeError) Error() string {
 // An UnexpectedMessageTypeError occurrs during Unmarshal when native and JSON
 // type can not be mapped
 type UnexpectedMessageTypeError struct {
-	_type, _exp MessageType
+	_type, _exp messageType
 }
 
 func (e UnexpectedMessageTypeError) Error() string {

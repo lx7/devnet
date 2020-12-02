@@ -14,16 +14,20 @@ type SDPMessage struct {
 	SDP webrtc.SessionDescription `json:"sdp"`
 }
 
+// ---------------------------------------------------------------------------
+// interface
+// ---------------------------------------------------------------------------
+
 // MarshalJSON provides JSON marshaling for SDPMessage
 func (m *SDPMessage) MarshalJSON() ([]byte, error) {
 	type Alias SDPMessage
 
 	return json.Marshal(&struct {
 		*Alias
-		Type MessageType `json:"type"`
+		Type messageType `json:"type"`
 	}{
 		Alias: (*Alias)(m),
-		Type:  MessageTypeSDP,
+		Type:  messageTypeSDP,
 	})
 }
 
@@ -32,13 +36,16 @@ func (m *SDPMessage) UnmarshalJSON(data []byte) error {
 	type Alias SDPMessage
 	aux := &struct {
 		*Alias
-		Type MessageType `json:"type"`
+		Type messageType `json:"type"`
 	}{}
 	if err := json.Unmarshal(data, &aux); err != nil {
 		return err
 	}
-	if aux.Type != MessageTypeSDP {
-		return UnexpectedMessageTypeError{_type: aux.Type, _exp: MessageTypeSDP}
+	if aux.Type != messageTypeSDP {
+		return UnexpectedMessageTypeError{
+			_type: aux.Type,
+			_exp:  messageTypeSDP,
+		}
 	}
 	*m = (SDPMessage)(*aux.Alias)
 	return nil

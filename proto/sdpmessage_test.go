@@ -2,27 +2,27 @@ package proto
 
 import (
 	"encoding/json"
-	"reflect"
 	"testing"
 
-	"github.com/nsf/jsondiff"
 	"github.com/pion/webrtc/v2"
 	log "github.com/sirupsen/logrus"
+	"github.com/stretchr/testify/assert"
 )
 
 func init() {
 	log.SetLevel(log.ErrorLevel)
 }
 
-func TestMarshalSDPMessage(t *testing.T) {
-	cases := []struct {
-		desc string
-		data SDPMessage
-		exp  string
+func TestSDPMessage_Marshal(t *testing.T) {
+	tests := []struct {
+		desc    string
+		give    SDPMessage
+		wantStr string
+		wantErr error
 	}{
 		{
 			desc: "marshal SDPMessage",
-			data: SDPMessage{
+			give: SDPMessage{
 				Src: "user 1",
 				Dst: "user 2",
 				SDP: webrtc.SessionDescription{
@@ -30,47 +30,41 @@ func TestMarshalSDPMessage(t *testing.T) {
 					SDP:  "sdp",
 				},
 			},
-			exp: `{
+			wantStr: `{
 				"type":"sdp", 
 				"src":"user 1", 
 				"dst":"user 2", 
 				"sdp":{ "type":"offer", "sdp":"sdp"} 
 			}`,
+			wantErr: nil,
 		},
 	}
 
-	diffOpts := jsondiff.DefaultConsoleOptions()
-
-	for _, c := range cases {
-		got, err := c.data.MarshalJSON()
-		if err != nil {
-			t.Errorf("%v: %v", c.desc, err)
-		}
-
-		res, diff := jsondiff.Compare(got, []byte(c.exp), &diffOpts)
-		if res != jsondiff.FullMatch {
-			t.Errorf("%v: diff: %v", c.desc, diff)
-		}
-
+	for _, tt := range tests {
+		t.Run(tt.desc, func(t *testing.T) {
+			json, err := tt.give.MarshalJSON()
+			assert.IsType(t, tt.wantErr, err)
+			assert.JSONEq(t, tt.wantStr, string(json))
+		})
 	}
 }
 
-func TestUnmarshalSDPMessage(t *testing.T) {
-	cases := []struct {
-		desc string
-		json string
-		exp  SDPMessage
-		err  error
+func TestSDPMessage_Unmarshal(t *testing.T) {
+	tests := []struct {
+		desc    string
+		give    string
+		wantMsg SDPMessage
+		wantErr error
 	}{
 		{
 			desc: "unmarshal SDPMessage",
-			json: `{
+			give: `{
 				"type":"sdp", 
 				"src":"user 1", 
 				"dst":"user 2", 
 				"sdp":{ "type":"offer", "sdp":"sdp"} 
 			}`,
-			exp: SDPMessage{
+			wantMsg: SDPMessage{
 				Src: "user 1",
 				Dst: "user 2",
 				SDP: webrtc.SessionDescription{
@@ -78,31 +72,27 @@ func TestUnmarshalSDPMessage(t *testing.T) {
 					SDP:  "sdp",
 				},
 			},
-			err: nil,
+			wantErr: nil,
 		},
 		{
 			desc: "unmarshal invalid type",
-			json: `{
+			give: `{
 				"type":"12345", 
 				"src":"user 1", 
 				"dst":"user 2", 
 				"sdp":{ "type":"offer", "sdp":"sdp"} 
 			}`,
-			exp: SDPMessage{},
-			err: UnexpectedMessageTypeError{},
+			wantMsg: SDPMessage{},
+			wantErr: UnexpectedMessageTypeError{},
 		},
 	}
 
-	for _, c := range cases {
-		var got SDPMessage
-		err := json.Unmarshal([]byte(c.json), &got)
-		if err != c.err && reflect.TypeOf(err) != reflect.TypeOf(c.err) {
-			t.Errorf("%v: %v", c.desc, err)
-		}
-
-		if !reflect.DeepEqual(c.exp, got) {
-			t.Errorf("%v: exp: %v got: %v", c.desc, c.exp, got)
-		}
-
+	for _, tt := range tests {
+		t.Run(tt.desc, func(t *testing.T) {
+			var msg SDPMessage
+			err := json.Unmarshal([]byte(tt.give), &msg)
+			assert.IsType(t, tt.wantErr, err)
+			assert.Equal(t, tt.wantMsg, msg)
+		})
 	}
 }

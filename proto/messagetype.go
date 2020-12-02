@@ -1,9 +1,8 @@
 package proto
 
-// MessageType defines message types of the JSON signaling protocol
-type MessageType string
+type messageType string
 
 const (
-	MessageTypeSDP  MessageType = "sdp"
-	MessageTypeInfo MessageType = "info"
+	messageTypeSDP  messageType = "sdp"
+	messageTypeInfo messageType = "info"
 )
