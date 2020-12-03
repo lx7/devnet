@@ -6,9 +6,10 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
-	"github.com/nsf/jsondiff"
 	log "github.com/sirupsen/logrus"
 	conf "github.com/spf13/viper"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func init() {
@@ -20,14 +21,14 @@ func TestServer(t *testing.T) {
 		"09d9623a149a4a0c043befcb448c9c3324be973230188ba412c008a2929f31d0")
 
 	// create test server
-	s := New("127.0.0.1:8080")
-	s.Bind("/channel")
+	s := New("127.0.0.1:40100")
+	s.Serve("/channel")
 	time.Sleep(10 * time.Millisecond)
 
 	// connect websocket
 	header := make(http.Header)
 	header.Add("Authorization", "Basic dGVzdHVzZXI6dGVzdA==")
-	url := "ws://127.0.0.1:8080/channel"
+	url := "ws://127.0.0.1:40100/channel"
 	ws, _, err := websocket.DefaultDialer.Dial(url, header)
 	if err != nil {
 		t.Fatalf("%v", err)
@@ -35,20 +36,20 @@ func TestServer(t *testing.T) {
 	defer ws.Close()
 
 	// define cases
-	cases := []struct {
+	tests := []struct {
 		desc string
-		data string
-		exp  string
+		give string
+		want string
 	}{
 		{
 			desc: "sdp echo",
-			data: `{
+			give: `{
 				"type":"sdp", 
 				"src":"testuser", 
 				"dst":"testuser", 
 				"sdp":{ "type":"offer", "sdp":"sdp"} 
 			}`,
-			exp: `{
+			want: `{
 				"type":"sdp", 
 				"src":"testuser", 
 				"dst":"testuser", 
@@ -57,22 +58,16 @@ func TestServer(t *testing.T) {
 		},
 	}
 
-	diffOpts := jsondiff.DefaultConsoleOptions()
-
 	// execute test cases
-	for _, c := range cases {
-		if err := ws.WriteMessage(websocket.TextMessage, []byte(c.data)); err != nil {
-			t.Errorf("%v: %v", c.desc, err)
-		}
-		_, got, err := ws.ReadMessage()
-		if err != nil {
-			t.Errorf("%v: %v", c.desc, err)
-		}
+	for _, tt := range tests {
+		t.Run(tt.desc, func(t *testing.T) {
+			err := ws.WriteMessage(websocket.TextMessage, []byte(tt.give))
+			require.NoError(t, err, "ws write should not cause an error")
 
-		res, diff := jsondiff.Compare(got, []byte(c.exp), &diffOpts)
-		if res != jsondiff.FullMatch {
-			t.Errorf("%v: diff: %v", c.desc, diff)
-		}
+			_, resp, err := ws.ReadMessage()
+			require.NoError(t, err, "ws read should not cause an error")
+			assert.JSONEq(t, tt.want, string(resp), "response should match")
+		})
 	}
 
 	// close websocket

@@ -30,7 +30,7 @@ func New(addr string) *Server {
 	return s
 }
 
-func (s *Server) Bind(wspath string) {
+func (s *Server) Serve(wspath string) {
 	s.wg.Add(1)
 	go func() {
 		defer s.wg.Done()
@@ -50,8 +50,8 @@ func (s *Server) Bind(wspath string) {
 	}()
 }
 
-func (s *Server) Serve(wspath string) {
-	s.Bind(wspath)
+func (s *Server) ServeAndWait(wspath string) {
+	s.Serve(wspath)
 	s.wg.Wait()
 }
 
@@ -74,8 +74,7 @@ func (s *Server) serveWs(w http.ResponseWriter, r *http.Request) {
 	}
 
 	client := s.sw.Attach(socket, user)
-	go client.ReadPump()
-	go client.WritePump()
+	client.Run()
 }
 
 func (s *Server) serveHome(w http.ResponseWriter, r *http.Request) {

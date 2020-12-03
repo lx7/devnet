@@ -4,17 +4,13 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
-	"reflect"
 	"strings"
 	"testing"
 
-	log "github.com/sirupsen/logrus"
 	conf "github.com/spf13/viper"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
-
-func init() {
-	log.SetLevel(log.ErrorLevel)
-}
 
 func TestBasicAuthHandler(t *testing.T) {
 	conf.Set("users.testuser",
@@ -24,99 +20,89 @@ func TestBasicAuthHandler(t *testing.T) {
 		fmt.Fprint(w, "OK")
 	}
 
-	cases := []struct {
-		desc       string
-		user       string
-		pass       string
-		exp_status int
-		exp_body   string
+	tests := []struct {
+		desc     string
+		giveUser string
+		givePass string
+		wantCode int
+		wantBody string
 	}{
 		{
-			desc:       "basic auth ok",
-			user:       "testuser",
-			pass:       "test",
-			exp_status: http.StatusOK,
-			exp_body:   "OK",
+			desc:     "basic auth ok",
+			giveUser: "testuser",
+			givePass: "test",
+			wantCode: http.StatusOK,
+			wantBody: "OK",
 		},
 		{
-			desc:       "basic auth wrong user",
-			user:       "wrong.user",
-			pass:       "test",
-			exp_status: http.StatusUnauthorized,
-			exp_body:   "Unauthorized",
+			desc:     "basic auth wrong user",
+			giveUser: "wrong.user",
+			givePass: "test",
+			wantCode: http.StatusUnauthorized,
+			wantBody: "Unauthorized",
 		},
 		{
-			desc:       "basic auth wrong password",
-			user:       "testuser",
-			pass:       "wrong password",
-			exp_status: http.StatusUnauthorized,
-			exp_body:   "Unauthorized",
+			desc:     "basic auth wrong password",
+			giveUser: "testuser",
+			givePass: "wrong password",
+			wantCode: http.StatusUnauthorized,
+			wantBody: "Unauthorized",
 		},
 		{
-			desc:       "basic auth empty user",
-			user:       "",
-			pass:       "test",
-			exp_status: http.StatusUnauthorized,
-			exp_body:   "Unauthorized",
+			desc:     "basic auth empty user",
+			giveUser: "",
+			givePass: "test",
+			wantCode: http.StatusUnauthorized,
+			wantBody: "Unauthorized",
 		},
 		{
-			desc:       "basic auth empty password",
-			user:       "testuser",
-			pass:       "",
-			exp_status: http.StatusUnauthorized,
-			exp_body:   "Unauthorized",
+			desc:     "basic auth empty password",
+			giveUser: "testuser",
+			givePass: "",
+			wantCode: http.StatusUnauthorized,
+			wantBody: "Unauthorized",
 		},
 		{
-			desc:       "basic auth empty user and password",
-			user:       "",
-			pass:       "",
-			exp_status: http.StatusUnauthorized,
-			exp_body:   "Unauthorized",
+			desc:     "basic auth empty user and password",
+			giveUser: "",
+			givePass: "",
+			wantCode: http.StatusUnauthorized,
+			wantBody: "Unauthorized",
 		},
 	}
 
-	for _, c := range cases {
-		req, err := http.NewRequest("GET", "/", nil)
-		if err != nil {
-			t.Fatal(err)
-		}
-		req.SetBasicAuth(c.user, c.pass)
+	for _, tt := range tests {
+		t.Run(tt.desc, func(t *testing.T) {
+			req, err := http.NewRequest("GET", "/", nil)
+			require.NoError(t, err)
 
-		rr := httptest.NewRecorder()
-		handler := http.HandlerFunc(BasicAuth(okResponder))
-		handler.ServeHTTP(rr, req)
+			req.SetBasicAuth(tt.giveUser, tt.givePass)
 
-		if got := rr.Code; got != c.exp_status {
-			t.Errorf("%v: exp status: %v got status: %v", c.desc, c.exp_status, got)
-		}
+			rr := httptest.NewRecorder()
+			handler := http.HandlerFunc(BasicAuth(okResponder))
+			handler.ServeHTTP(rr, req)
 
-		if got := rr.Body.String(); strings.TrimSpace(got) != c.exp_body {
-			t.Errorf("%v: exp body: '%v' got body: '%v'", c.desc, c.exp_body, got)
-		}
+			assert.Equal(t, tt.wantCode, rr.Code)
+			assert.Equal(t, tt.wantBody, strings.TrimSpace(rr.Body.String()))
+		})
 	}
 }
 
 func TestBasicAuthHeader(t *testing.T) {
-	exp := make(http.Header)
-	exp.Add("Authorization", "Basic dGVzdHVzZXI6dGVzdA==")
+	want := make(http.Header)
+	want.Add("Authorization", "Basic dGVzdHVzZXI6dGVzdA==")
 
-	got := BasicAuthHeader("testuser", "test")
-	if !reflect.DeepEqual(got, exp) {
-		t.Errorf("basic auth header mismatch: exp: %v got: %v", exp, got)
-	}
+	header := BasicAuthHeader("testuser", "test")
+	assert.Equal(t, want, header)
 }
 
-func TestPassword(t *testing.T) {
+func TestUserPass(t *testing.T) {
 	conf.Set("users.testuser",
 		"09d9623a149a4a0c043befcb448c9c3324be973230188ba412c008a2929f31d0")
 
-	exp := false
-	if got := User("testuser", "wrong password"); got != exp {
-		t.Errorf("wrong password authenticated: exp: %v got: %v", exp, got)
-	}
+	auth := UserPass("testuser", "wrong password")
+	assert.Equal(t, auth, false, "wrong password should not match")
 
-	exp = true
-	if got := User("testuser", "test"); got != exp {
-		t.Errorf("password failed to authenticate: exp: %v got: %v", exp, got)
-	}
+	auth = UserPass("testuser", "test")
+	assert.Equal(t, auth, true, "right password should match")
 }

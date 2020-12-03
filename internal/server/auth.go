@@ -10,7 +10,12 @@ import (
 	conf "github.com/spf13/viper"
 )
 
-func User(user string, pass string) bool {
+// ---------------------------------------------------------------------------
+// interface
+// ---------------------------------------------------------------------------
+
+// UserPass implements basic username / password verification.
+func UserPass(user string, pass string) bool {
 	sum := sha256.Sum256([]byte(fmt.Sprintf("%s+%s", user, pass)))
 	str := fmt.Sprintf("%x", sum)
 	truth := conf.GetString(fmt.Sprintf("users.%s", user))
@@ -23,10 +28,11 @@ func User(user string, pass string) bool {
 	}
 }
 
+// BasicAuth provides an authentication wrapper for http.HandlerFunc.
 func BasicAuth(next http.HandlerFunc) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		user, pass, ok := r.BasicAuth()
-		if ok && User(user, pass) {
+		if ok && UserPass(user, pass) {
 			next.ServeHTTP(w, r)
 		} else {
 			code := http.StatusUnauthorized
@@ -36,6 +42,7 @@ func BasicAuth(next http.HandlerFunc) http.HandlerFunc {
 	})
 }
 
+// BasicAuthHeader returns an Authorization http.Header for BasicAuth.
 func BasicAuthHeader(user, pass string) http.Header {
 	cred := user + ":" + pass
 	auth := base64.StdEncoding.EncodeToString([]byte(cred))
