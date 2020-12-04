@@ -29,21 +29,12 @@ type Switch struct {
 	done       chan bool
 }
 
-// Attach returns a new registered client instance for the given socket.
-func (sw *Switch) Attach(socket *transport.Socket, name string) *Client {
-	c := NewClient(socket, sw, name)
-	sw.Register(c)
-	return c
-}
-
-// Register adds a client to the switch
-func (sw *Switch) Register(client *Client) {
-	sw.register <- client
-}
-
-// Unregister removes a client from the switch
-func (sw *Switch) Unregister(client *Client) {
-	sw.unregister <- client
+// Attach connects a MessageReadWriter to the switch and returns when mrw
+// closes.
+func (sw *Switch) Attach(rw transport.MessageReadWriter, name string) {
+	c := NewClient(rw, sw, name)
+	sw.register <- c
+	c.Run()
 }
 
 // Run implements the message handling loop.
@@ -91,5 +82,4 @@ func (sw *Switch) Shutdown() {
 	for _, c := range sw.clients {
 		sw.unregister <- c
 	}
-	sw.done <- true
 }
