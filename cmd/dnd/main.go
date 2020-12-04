@@ -39,7 +39,10 @@ func configure(confpath string) {
 
 func run() {
 	s := server.New(conf.GetString("server.addr"))
-	s.Serve(conf.GetString("server.wspath"))
+	err := s.Serve(conf.GetString("server.wspath"))
+	if err != nil {
+		log.Fatal("http server: ", err)
+	}
 }
 
 func main() {
