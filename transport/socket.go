@@ -60,6 +60,7 @@ func Upgrade(w http.ResponseWriter, r *http.Request) (*Socket, error) {
 	if err != nil {
 		return nil, err
 	}
+	log.Trace("upgraded connection from ", ws.RemoteAddr())
 	ws.SetCloseHandler(s.closeHandler)
 	s.ws = ws
 	s.connected = true
@@ -92,6 +93,7 @@ func (s *Socket) ReadMessage() (data []byte, err error) {
 		return data, ErrWSNotConnected
 	}
 	mt, data, err := s.ws.ReadMessage()
+	log.Tracef("read message of type %v from %v", mt, s.ws.RemoteAddr())
 
 	if err != nil {
 		if websocket.IsCloseError(err, websocket.CloseNormalClosure) {
@@ -104,6 +106,7 @@ func (s *Socket) ReadMessage() (data []byte, err error) {
 	}
 
 	if mt != websocket.TextMessage {
+		log.Tracef("invalid message type %v from %v", mt, s.ws.RemoteAddr())
 		return nil, ErrInvalidWSMessageType
 	}
 
@@ -113,10 +116,10 @@ func (s *Socket) ReadMessage() (data []byte, err error) {
 // WriteMessage writes a single message to the socket. The socket is locked
 // during write operations.
 func (s *Socket) WriteMessage(data []byte) error {
-	log.Trace("send data: ", string(data))
 	if !s.Connected() {
 		return ErrWSNotConnected
 	}
+	log.Tracef("write message to %v: %v", s.ws.RemoteAddr(), string(data))
 	s.Lock()
 	err := s.ws.WriteMessage(websocket.TextMessage, data)
 	s.Unlock()
@@ -192,6 +195,13 @@ func (s *Socket) reconnect() {
 	s.dial(s.dialerURL, s.dialerHeader)
 }
 
+func (s *Socket) setConnected(state bool) {
+	s.Lock()
+	defer s.Unlock()
+
+	s.connected = state
+}
+
 func (s *Socket) keepAlive() {
 	lastResponse := time.Now()
 	s.ws.SetPongHandler(func(msg string) error {
@@ -201,27 +211,22 @@ func (s *Socket) keepAlive() {
 
 	go func() {
 		for {
+			log.Trace("sending ping to ", s.ws.RemoteAddr())
 			s.Lock()
 			err := s.ws.WriteMessage(websocket.PingMessage, []byte("ping"))
 			s.Unlock()
 			if err != nil {
+				log.Error("failed to send ping: ", err)
 				s.Close()
-				return
 			}
 			if time.Since(lastResponse) > keepaliveInterval*2 {
+				log.Info("ping timeout, disconnecting ", s.ws.RemoteAddr())
 				s.Close()
 				return
 			}
 			time.Sleep(keepaliveInterval)
 		}
 	}()
-}
-
-func (s *Socket) setConnected(state bool) {
-	s.Lock()
-	defer s.Unlock()
-
-	s.connected = state
 }
 
 func (s *Socket) closeHandler(_ int, _ string) error {
