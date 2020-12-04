@@ -12,55 +12,49 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+// Server represents the http signaling server.
 type Server struct {
 	*http.Server
-
-	wg *sync.WaitGroup
 	sw *signaling.Switch
 }
 
+// New returns a new Server instance.
 func New(addr string) *Server {
 	s := &Server{
 		&http.Server{
 			Addr: addr,
 		},
-		&sync.WaitGroup{},
 		signaling.NewSwitch(),
 	}
 	return s
 }
 
-func (s *Server) Serve(wspath string) {
-	s.wg.Add(1)
+// Serve starts listening on Addr ad serves HTTP requests. Connections to
+// wspath will be upgraded to the WebSocket protocol as defined per RFC 6455.
+func (s *Server) Serve(wspath string) error {
+	wg := sync.WaitGroup{}
+	wg.Add(1)
 	go func() {
-		defer s.wg.Done()
+		defer wg.Done()
 		s.sw.Run()
 	}()
 
 	http.HandleFunc(wspath, BasicAuth(s.serveWs))
 	http.HandleFunc("/", s.serveHome)
 
-	s.wg.Add(1)
-	go func() {
-		defer s.wg.Done()
-
-		if err := s.Server.ListenAndServe(); err != http.ErrServerClosed {
-			log.Fatal("http server: ", err)
-		}
-	}()
+	if err := s.Server.ListenAndServe(); err != http.ErrServerClosed {
+		return err
+	}
+	wg.Wait()
+	return nil
 }
 
-func (s *Server) ServeAndWait(wspath string) {
-	s.Serve(wspath)
-	s.wg.Wait()
-}
-
+// Shutdown terminates the http server.
 func (s *Server) Shutdown() {
 	if err := s.Server.Shutdown(context.TODO()); err != nil {
 		log.Error("server shutdown: ", err)
 	}
 	s.sw.Shutdown()
-	s.wg.Wait()
 	log.Info("server shutdown complete")
 }
 
@@ -73,8 +67,7 @@ func (s *Server) serveWs(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	client := s.sw.Attach(socket, user)
-	client.Run()
+	s.sw.Attach(socket, user)
 }
 
 func (s *Server) serveHome(w http.ResponseWriter, r *http.Request) {

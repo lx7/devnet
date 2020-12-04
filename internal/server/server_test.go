@@ -13,43 +13,42 @@ import (
 )
 
 func init() {
-	log.SetLevel(log.ErrorLevel)
-}
+	log.SetLevel(log.TraceLevel)
 
-func TestServer(t *testing.T) {
 	conf.Set("users.testuser",
 		"09d9623a149a4a0c043befcb448c9c3324be973230188ba412c008a2929f31d0")
 
-	// create test server
 	s := New("127.0.0.1:40100")
-	s.Serve("/channel")
-	time.Sleep(10 * time.Millisecond)
+	go s.Serve("/channel")
+	time.Sleep(20 * time.Millisecond)
+}
 
+func TestServer_Websocket(t *testing.T) {
 	// connect websocket
 	header := make(http.Header)
 	header.Add("Authorization", "Basic dGVzdHVzZXI6dGVzdA==")
 	url := "ws://127.0.0.1:40100/channel"
 	ws, _, err := websocket.DefaultDialer.Dial(url, header)
-	if err != nil {
-		t.Fatalf("%v", err)
-	}
+	require.NoError(t, err)
 	defer ws.Close()
 
 	// define cases
 	tests := []struct {
-		desc string
-		give string
-		want string
+		desc     string
+		giveStr  string
+		giveType int
+		wantStr  string
 	}{
 		{
 			desc: "sdp echo",
-			give: `{
+			giveStr: `{
 				"type":"sdp", 
 				"src":"testuser", 
 				"dst":"testuser", 
 				"sdp":{ "type":"offer", "sdp":"sdp"} 
 			}`,
-			want: `{
+			giveType: websocket.TextMessage,
+			wantStr: `{
 				"type":"sdp", 
 				"src":"testuser", 
 				"dst":"testuser", 
@@ -61,19 +60,57 @@ func TestServer(t *testing.T) {
 	// execute test cases
 	for _, tt := range tests {
 		t.Run(tt.desc, func(t *testing.T) {
-			err := ws.WriteMessage(websocket.TextMessage, []byte(tt.give))
+			err := ws.WriteMessage(tt.giveType, []byte(tt.giveStr))
 			require.NoError(t, err, "ws write should not cause an error")
 
+			log.Info("--> t1")
 			_, resp, err := ws.ReadMessage()
 			require.NoError(t, err, "ws read should not cause an error")
-			assert.JSONEq(t, tt.want, string(resp), "response should match")
+			assert.JSONEq(t, tt.wantStr, string(resp), "response should match")
+			log.Info("--> t2")
 		})
 	}
+}
 
-	// close websocket
-	ws.WriteMessage(
-		websocket.CloseMessage,
-		websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""),
-	)
-	s.Shutdown()
+func TestServer_Auth(t *testing.T) {
+	// define cases
+	tests := []struct {
+		desc     string
+		giveAuth string
+		wantErr  error
+	}{
+		{
+			desc:     "no auth header",
+			giveAuth: "",
+			wantErr:  websocket.ErrBadHandshake,
+		},
+		{
+			desc:     "invalid auth header",
+			giveAuth: "Basic kDgmmNnabzatzZmvAV",
+			wantErr:  websocket.ErrBadHandshake,
+		},
+		{
+			desc:     "correct auth header",
+			giveAuth: "Basic dGVzdHVzZXI6dGVzdA==",
+			wantErr:  nil,
+		},
+	}
+
+	url := "ws://127.0.0.1:40100/channel"
+
+	// run tests
+	for _, tt := range tests {
+		t.Run(tt.desc, func(t *testing.T) {
+			header := make(http.Header)
+			if tt.giveAuth != "" {
+				header.Add("Authorization", tt.giveAuth)
+			}
+			ws, _, err := websocket.DefaultDialer.Dial(url, header)
+			require.Equal(t, tt.wantErr, err)
+
+			if ws != nil {
+				ws.Close()
+			}
+		})
+	}
 }
