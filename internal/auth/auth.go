@@ -1,4 +1,4 @@
-package server
+package auth
 
 import (
 	"crypto/sha256"
@@ -9,10 +9,6 @@ import (
 	log "github.com/sirupsen/logrus"
 	conf "github.com/spf13/viper"
 )
-
-// ---------------------------------------------------------------------------
-// interface
-// ---------------------------------------------------------------------------
 
 // UserPass implements basic username / password verification.
 func UserPass(user string, pass string) bool {
