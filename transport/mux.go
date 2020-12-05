@@ -56,14 +56,15 @@ func (m *Mux) Receive() error {
 		if err != nil {
 			return err
 		}
-
-		if data != nil {
-			m.dispatch(data)
-		}
+		m.dispatch(data)
 	}
 }
 
 func (m *Mux) dispatch(data []byte) {
+	if data == nil {
+		return
+	}
+
 	peek, err := proto.Unmarshal(data)
 	if err != nil {
 		log.Warnf("invalid message: %s", data)

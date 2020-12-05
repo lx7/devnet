@@ -1,22 +1,19 @@
 package transport
 
 import (
-	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"strings"
 	"testing"
 	"time"
 
-	"github.com/gorilla/websocket"
 	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 func init() {
-	log.SetLevel(log.ErrorLevel)
+	log.SetLevel(log.InfoLevel)
 }
 
 func TestSocket_NotConnected(t *testing.T) {
@@ -72,17 +69,11 @@ func TestSocket_EchoReconnect(t *testing.T) {
 	require.Equal(t, string(resp), string(msg), "response mismatch")
 
 	// force reconnect
-	_ = socket.ws.WriteMessage(
-		websocket.CloseMessage,
-		websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""),
-	)
-	time.Sleep(100 * time.Millisecond)
-	log.SetOutput(ioutil.Discard)
-	require.Error(t, socket.WriteMessage(msg))
-	log.SetOutput(os.Stdout)
+	socket.Close()
+	time.Sleep(10 * time.Millisecond)
 
 	// test echo again
-	time.Sleep(5 * time.Second)
+	time.Sleep(100 * time.Millisecond)
 	require.NoError(t, socket.WriteMessage(msg))
 
 	resp, err = socket.ReadMessage()

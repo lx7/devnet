@@ -23,7 +23,7 @@ type Socket struct {
 }
 
 const (
-	keepaliveInterval    = 25 * time.Second
+	keepaliveInterval    = 10 * time.Second
 	reconnectInterval    = 5 * time.Second
 	receiveRetryInterval = 100 * time.Millisecond
 	sendRetryInterval    = reconnectInterval * 2
@@ -70,51 +70,49 @@ func Dial(url string, h http.Header) *Socket {
 }
 
 // ReadMessage reads a single message from the socket
-func (s *Socket) ReadMessage() (data []byte, err error) {
-	if !s.Connected() {
-		return data, ErrWSNotConnected{}
+func (s *Socket) ReadMessage() ([]byte, error) {
+	if !s.ensureConnected() {
+		log.Trace("ReadMessage failed: websocket not connected")
+		return nil, ErrWSNotConnected{}
 	}
+
 	mt, data, err := s.ws.ReadMessage()
 	log.Tracef("read message of type %v from %v", mt, s.ws.RemoteAddr())
 
-	if err != nil {
-		if websocket.IsCloseError(err, websocket.CloseNormalClosure) {
-			log.Info("connection closed")
-		}
-		if s.dialer != nil {
-			s.reconnect()
-		}
-		return nil, nil
+	if err != nil && !s.ensureConnected() {
+		log.Trace("ReadMessage failed with error: ", err)
+		return nil, err
 	}
-
-	if mt != websocket.TextMessage {
-		return nil, ErrInvalidWSMessageType{mt: mt, src: s.ws.RemoteAddr()}
+	switch mt {
+	case websocket.TextMessage:
+		return data, nil
+	case -1:
+		s.Close()
+	default:
+		log.Errorf("readmessage: unknown message type %v", mt)
 	}
-
-	return data, err
+	return nil, nil
 }
 
 // WriteMessage writes a single message to the socket. The socket is locked
 // during write operations.
 func (s *Socket) WriteMessage(data []byte) error {
-	if !s.Connected() {
+	if !s.ensureConnected() {
+		log.Trace("WriteMessage failed: websocket not connected")
 		return ErrWSNotConnected{}
 	}
 	log.Tracef("write message to %v: %v", s.ws.RemoteAddr(), string(data))
 	s.Lock()
-	err := s.ws.WriteMessage(websocket.TextMessage, data)
-	s.Unlock()
-	if err != nil && s.dialer != nil {
-		s.reconnect()
-	}
-	return err
+	defer s.Unlock()
+	return s.ws.WriteMessage(websocket.TextMessage, data)
 }
 
 // Close writes a close message to the socket to allow the other endpoint to
 // shut down. After a short delay the connection will be terminated.
 func (s *Socket) Close() {
-	s.Lock()
-	if s.ws != nil {
+	if s.ws != nil && s.Connected() {
+		log.Info("closing connection")
+		s.Lock()
 		if err := s.ws.WriteMessage(
 			websocket.CloseMessage,
 			websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""),
@@ -126,9 +124,8 @@ func (s *Socket) Close() {
 		if err := s.ws.Close(); err != nil {
 			log.Error("closing: ", err)
 		}
+		s.Unlock()
 	}
-	s.Unlock()
-
 	s.setConnected(false)
 }
 
@@ -136,36 +133,52 @@ func (s *Socket) Close() {
 func (s *Socket) Connected() bool {
 	s.RLock()
 	defer s.RUnlock()
+	if s.ws == nil {
+		s.connected = false
+	}
 
 	return s.connected
 }
 
 func (s *Socket) dial(url string, h http.Header) {
 	log.Info("connecting: ", url)
+	s.Lock()
+	defer s.Unlock()
+
+	if s.connected {
+		return
+	}
+
 	s.dialerURL = url
 	s.dialerHeader = h
 
-	go func() {
-		for {
-			ws, _, err := s.dialer.Dial(url, h)
-			if err == nil {
-				ws.SetCloseHandler(s.closeHandler)
-				s.Lock()
-				s.ws = ws
-				s.connected = true
-				s.keepAlive()
-				s.Unlock()
-				return
-			}
+	for {
+		ws, _, err := s.dialer.Dial(url, h)
+		if err != nil {
 			log.Error("dial: ", err)
 			time.Sleep(reconnectInterval)
+			continue
 		}
-	}()
+		ws.SetCloseHandler(s.closeHandler)
+		s.ws = ws
+		s.connected = true
+		s.keepAlive()
+		log.Info("connection established")
+		time.Sleep(1 * time.Second)
+		return
+	}
 }
 
-func (s *Socket) reconnect() {
-	s.Close()
-	s.dial(s.dialerURL, s.dialerHeader)
+func (s *Socket) ensureConnected() bool {
+	if !s.Connected() {
+		if s.dialer != nil {
+			s.Close()
+			s.dial(s.dialerURL, s.dialerHeader)
+			return s.ensureConnected()
+		}
+		return false
+	}
+	return true
 }
 
 func (s *Socket) setConnected(state bool) {
@@ -183,18 +196,17 @@ func (s *Socket) keepAlive() {
 	})
 
 	go func() {
-		for {
+		for s.Connected() {
 			log.Trace("sending ping to ", s.ws.RemoteAddr())
 			s.Lock()
 			err := s.ws.WriteMessage(websocket.PingMessage, []byte("ping"))
 			s.Unlock()
 			if err != nil {
-				log.Error("failed to send ping: ", err)
-				s.Close()
+				log.Warn("failed to send ping: ", err)
+				return
 			}
 			if time.Since(lastResponse) > keepaliveInterval*2 {
-				log.Info("ping timeout, disconnecting ", s.ws.RemoteAddr())
-				s.Close()
+				log.Warn("ping timeout: ", s.ws.RemoteAddr())
 				return
 			}
 			time.Sleep(keepaliveInterval)
@@ -203,6 +215,6 @@ func (s *Socket) keepAlive() {
 }
 
 func (s *Socket) closeHandler(_ int, _ string) error {
-	s.setConnected(false)
+	s.Close()
 	return nil
 }
