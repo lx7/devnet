@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"sync"
 
+	"github.com/lx7/devnet/internal/auth"
 	"github.com/lx7/devnet/internal/signaling"
 	"github.com/lx7/devnet/transport"
 
@@ -39,7 +40,7 @@ func (s *Server) Serve(wspath string) error {
 		s.sw.Run()
 	}()
 
-	http.HandleFunc(wspath, BasicAuth(s.serveWs))
+	http.HandleFunc(wspath, auth.BasicAuth(s.serveWs))
 	http.HandleFunc("/", s.serveHome)
 
 	if err := s.Server.ListenAndServe(); err != http.ErrServerClosed {

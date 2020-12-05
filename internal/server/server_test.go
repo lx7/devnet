@@ -13,7 +13,7 @@ import (
 )
 
 func init() {
-	log.SetLevel(log.TraceLevel)
+	log.SetLevel(log.InfoLevel)
 
 	conf.Set("users.testuser",
 		"09d9623a149a4a0c043befcb448c9c3324be973230188ba412c008a2929f31d0")
@@ -63,11 +63,9 @@ func TestServer_Websocket(t *testing.T) {
 			err := ws.WriteMessage(tt.giveType, []byte(tt.giveStr))
 			require.NoError(t, err, "ws write should not cause an error")
 
-			log.Info("--> t1")
 			_, resp, err := ws.ReadMessage()
 			require.NoError(t, err, "ws read should not cause an error")
 			assert.JSONEq(t, tt.wantStr, string(resp), "response should match")
-			log.Info("--> t2")
 		})
 	}
 }
