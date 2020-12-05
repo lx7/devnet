@@ -3,6 +3,7 @@ package transport
 import (
 	"encoding/json"
 	"reflect"
+	"time"
 
 	"github.com/lx7/devnet/proto"
 
@@ -17,10 +18,6 @@ type Mux struct {
 	Consumer   Consumer
 }
 
-// ---------------------------------------------------------------------------
-// exported
-// ---------------------------------------------------------------------------
-
 // Send serializes and sends signaling messages through the MessageReadWriter
 // interface
 func (m *Mux) Send(msg proto.Message) error {
@@ -30,6 +27,19 @@ func (m *Mux) Send(msg proto.Message) error {
 	}
 	if err = m.ReadWriter.WriteMessage(data); err != nil {
 		return err
+	}
+	return nil
+}
+
+func (m *Mux) SendRetry(msg proto.Message, max int, wait time.Duration) error {
+	var err error
+	for n := 1; n <= max; n++ {
+		if err = m.Send(msg); err != nil {
+			time.Sleep(time.Duration(n) * wait)
+		}
+	}
+	if err != nil {
+		return ErrRetryCountExceeded{retries: max, lasterr: err}
 	}
 	return nil
 }
@@ -52,10 +62,6 @@ func (m *Mux) Receive() error {
 		}
 	}
 }
-
-// ---------------------------------------------------------------------------
-// utility
-// ---------------------------------------------------------------------------
 
 func (m *Mux) dispatch(data []byte) {
 	peek, err := proto.Unmarshal(data)

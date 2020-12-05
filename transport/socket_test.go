@@ -34,7 +34,7 @@ func TestSocket_NotConnected(t *testing.T) {
 			give: func() error {
 				return socket.WriteMessage([]byte("some message"))
 			},
-			wantErr: ErrWSNotConnected,
+			wantErr: ErrWSNotConnected{},
 		},
 		{
 			desc: "ReadMessage",
@@ -42,7 +42,7 @@ func TestSocket_NotConnected(t *testing.T) {
 				_, err := socket.ReadMessage()
 				return err
 			},
-			wantErr: ErrWSNotConnected,
+			wantErr: ErrWSNotConnected{},
 		},
 	}
 

@@ -2,7 +2,6 @@ package transport
 
 import (
 	"crypto/tls"
-	"errors"
 	"net/http"
 	"sync"
 	"time"
@@ -30,19 +29,6 @@ const (
 	sendRetryInterval    = reconnectInterval * 2
 	handshakeTimeout     = 20 * time.Second
 )
-
-var (
-	// ErrWSNotConnected occurrs on invocation of ReadMessage() or
-	// WriteMessage() without the WebSocket connection already established.
-	ErrWSNotConnected = errors.New("websocket: not connected")
-
-	//ErrInvalidWSMessagetype is caused by a websocket message of unknown type.
-	ErrInvalidWSMessageType = errors.New("websocket: invalid message type")
-)
-
-// ---------------------------------------------------------------------------
-// constructors
-// ---------------------------------------------------------------------------
 
 // Upgrade returns a new socket for an incoming http connection.
 func Upgrade(w http.ResponseWriter, r *http.Request) (*Socket, error) {
@@ -83,14 +69,10 @@ func Dial(url string, h http.Header) *Socket {
 	return s
 }
 
-// ---------------------------------------------------------------------------
-// interface
-// ---------------------------------------------------------------------------
-
 // ReadMessage reads a single message from the socket
 func (s *Socket) ReadMessage() (data []byte, err error) {
 	if !s.Connected() {
-		return data, ErrWSNotConnected
+		return data, ErrWSNotConnected{}
 	}
 	mt, data, err := s.ws.ReadMessage()
 	log.Tracef("read message of type %v from %v", mt, s.ws.RemoteAddr())
@@ -106,8 +88,7 @@ func (s *Socket) ReadMessage() (data []byte, err error) {
 	}
 
 	if mt != websocket.TextMessage {
-		log.Tracef("invalid message type %v from %v", mt, s.ws.RemoteAddr())
-		return nil, ErrInvalidWSMessageType
+		return nil, ErrInvalidWSMessageType{mt: mt, src: s.ws.RemoteAddr()}
 	}
 
 	return data, err
@@ -117,7 +98,7 @@ func (s *Socket) ReadMessage() (data []byte, err error) {
 // during write operations.
 func (s *Socket) WriteMessage(data []byte) error {
 	if !s.Connected() {
-		return ErrWSNotConnected
+		return ErrWSNotConnected{}
 	}
 	log.Tracef("write message to %v: %v", s.ws.RemoteAddr(), string(data))
 	s.Lock()
@@ -151,10 +132,6 @@ func (s *Socket) Close() {
 	s.setConnected(false)
 }
 
-// ---------------------------------------------------------------------------
-// exported
-// ---------------------------------------------------------------------------
-
 // Connected returns true if a websocket connection is established, else false
 func (s *Socket) Connected() bool {
 	s.RLock()
@@ -162,10 +139,6 @@ func (s *Socket) Connected() bool {
 
 	return s.connected
 }
-
-// ---------------------------------------------------------------------------
-// utility
-// ---------------------------------------------------------------------------
 
 func (s *Socket) dial(url string, h http.Header) {
 	log.Info("connecting: ", url)
