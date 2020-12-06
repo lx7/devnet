@@ -9,6 +9,7 @@ import (
 // Switch provides message forwarding between clients.
 type Switch interface {
 	Register(Client)
+	Unregister(Client)
 	Forward() chan<- *proto.SDPMessage
 	Run()
 	Shutdown()
@@ -42,6 +43,10 @@ func NewSwitch() *DefaultSwitch {
 func (sw *DefaultSwitch) Register(c Client) {
 	sw.register <- c
 	c.Attach(sw)
+}
+
+func (sw *DefaultSwitch) Unregister(c Client) {
+	sw.unregister <- c
 }
 
 // Forward returns the switches forward channel.

@@ -69,13 +69,15 @@ func (c *DefaultClient) Send() chan<- *proto.SDPMessage {
 
 func (c *DefaultClient) readPump() {
 	defer func() {
-		close(c.send)
 		c.conn.Close()
 	}()
 	for {
 		_, data, err := c.conn.ReadMessage()
 		if err != nil {
-			if unexpectedCloseError(err) {
+			if !websocket.IsCloseError(err,
+				websocket.CloseNormalClosure,
+				websocket.CloseAbnormalClosure,
+			) {
 				log.Error("read message: ", err)
 			}
 			break
@@ -83,7 +85,7 @@ func (c *DefaultClient) readPump() {
 
 		m, err := proto.Unmarshal(data)
 		if err != nil {
-			log.Error("unmarshal: ", err)
+			log.Warn("unmarshal message: ", err)
 			continue
 		}
 
@@ -95,26 +97,19 @@ func (c *DefaultClient) readPump() {
 		}
 	}
 	log.Trace("stopping read pump")
+	c.sw.Unregister(c)
 }
 
 func (c *DefaultClient) writePump() {
 	for m := range c.send {
 		data, err := proto.Marshal(m)
 		if err != nil {
-			log.Warn("write: ", err)
+			log.Warn("marshal message: ", err)
 		}
 
 		err = c.conn.WriteMessage(websocket.TextMessage, data)
 		if err != nil {
-			log.Error("write: ", err)
+			log.Warn("write message: ", err)
 		}
 	}
-}
-
-func unexpectedCloseError(err error) bool {
-	return websocket.IsUnexpectedCloseError(
-		err,
-		websocket.CloseGoingAway,
-		websocket.CloseAbnormalClosure,
-	)
 }

@@ -78,7 +78,7 @@ func (s *Server) serveWs(w http.ResponseWriter, r *http.Request) {
 		httpError(w, http.StatusInternalServerError, err)
 		return
 	}
-	log.Info("upgraded connection from ", conn.RemoteAddr())
+	log.Trace("upgraded connection from ", conn.RemoteAddr())
 	c := NewClient(conn, user)
 	s.sw.Register(c)
 }
