@@ -6,9 +6,8 @@ import (
 	"net/http"
 	"sync"
 
+	"github.com/gorilla/websocket"
 	"github.com/lx7/devnet/internal/auth"
-	"github.com/lx7/devnet/internal/signaling"
-	"github.com/lx7/devnet/transport"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -16,7 +15,8 @@ import (
 // Server represents the http signaling server.
 type Server struct {
 	*http.Server
-	sw *signaling.Switch
+	upgrader websocket.Upgrader
+	sw       Switch
 }
 
 // New returns a new Server instance.
@@ -25,7 +25,14 @@ func New(addr string) *Server {
 		&http.Server{
 			Addr: addr,
 		},
-		signaling.NewSwitch(),
+		websocket.Upgrader{
+			ReadBufferSize:  0,
+			WriteBufferSize: 0,
+			CheckOrigin: func(r *http.Request) bool {
+				return true
+			},
+		},
+		NewSwitch(),
 	}
 	return s
 }
@@ -60,17 +67,28 @@ func (s *Server) Shutdown() {
 }
 
 func (s *Server) serveWs(w http.ResponseWriter, r *http.Request) {
-	user, _, _ := r.BasicAuth()
-
-	socket, err := transport.Upgrade(w, r)
-	if err != nil {
-		log.Error("connection upgrade: ", err)
+	user, _, ok := r.BasicAuth()
+	if !ok {
+		httpError(w, http.StatusUnauthorized, nil)
 		return
 	}
 
-	s.sw.Attach(socket, user)
+	conn, err := s.upgrader.Upgrade(w, r, nil)
+	if err != nil {
+		httpError(w, http.StatusInternalServerError, err)
+		return
+	}
+	log.Info("upgraded connection from ", conn.RemoteAddr())
+	c := NewClient(conn, user)
+	s.sw.Register(c)
 }
 
 func (s *Server) serveHome(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprint(w, "OK")
+}
+
+func httpError(w http.ResponseWriter, code int, err error) {
+	text := http.StatusText(code)
+	log.Errorf("http error %v: %v: %v", code, text, err)
+	http.Error(w, text, code)
 }

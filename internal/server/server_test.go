@@ -42,17 +42,17 @@ func TestServer_Websocket(t *testing.T) {
 		{
 			desc: "sdp echo",
 			giveStr: `{
-				"type":"sdp", 
-				"src":"testuser", 
-				"dst":"testuser", 
-				"sdp":{ "type":"offer", "sdp":"sdp"} 
+				"type":"sdp",
+				"src":"testuser",
+				"dst":"testuser",
+				"sdp":{ "type":"offer", "sdp":"sdp"}
 			}`,
 			giveType: websocket.TextMessage,
 			wantStr: `{
-				"type":"sdp", 
-				"src":"testuser", 
-				"dst":"testuser", 
-				"sdp":{ "type":"offer", "sdp":"sdp"} 
+				"type":"sdp",
+				"src":"testuser",
+				"dst":"testuser",
+				"sdp":{ "type":"offer", "sdp":"sdp"}
 			}`,
 		},
 	}
@@ -62,6 +62,7 @@ func TestServer_Websocket(t *testing.T) {
 		t.Run(tt.desc, func(t *testing.T) {
 			err := ws.WriteMessage(tt.giveType, []byte(tt.giveStr))
 			require.NoError(t, err, "ws write should not cause an error")
+			time.Sleep(10 * time.Millisecond)
 
 			_, resp, err := ws.ReadMessage()
 			require.NoError(t, err, "ws read should not cause an error")
