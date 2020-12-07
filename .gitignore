@@ -1,5 +1,4 @@
 bin/
-gst/
 _tmp/
 coverage.out
 coverage.html
