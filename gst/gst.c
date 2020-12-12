@@ -4,14 +4,15 @@
 
 typedef struct _CustomData {
   GstElement *pipeline;           
+  int pipeline_id;
 } CustomData;
 
 static guintptr video_window_handle = 0;
 
 static GstBusSyncReply 
-bus_sync_handler (GstBus * bus, GstMessage * message, gpointer user_data) {
+bus_sync_handler (GstBus * bus, GstMessage * message, gpointer data) {
     if (!gst_is_video_overlay_prepare_window_handle_message (message))
-    return GST_BUS_PASS;
+        return GST_BUS_PASS;
     
     if (video_window_handle != 0) {
         GstVideoOverlay *overlay;
@@ -27,16 +28,20 @@ bus_sync_handler (GstBus * bus, GstMessage * message, gpointer user_data) {
 }
 
 static void error_cb (GstBus *bus, GstMessage *msg, CustomData *data) {
-  GError *err;
-  gchar *debug_info;
+    GError *err;
+    gchar *debug_info;
 
-  gst_message_parse_error (msg, &err, &debug_info);
-  g_printerr ("error from element %s: %s\n", GST_OBJECT_NAME (msg->src), err->message);
-  g_printerr ("debug: %s\n", debug_info ? debug_info : "none");
-  g_clear_error (&err);
-  g_free (debug_info);
+    gst_message_parse_error (msg, &err, &debug_info);
+    g_printerr (
+            "error from element %s: %s\n", 
+            GST_OBJECT_NAME (msg->src), 
+            err->message
+        );
+    g_printerr ("debug: %s\n", debug_info ? debug_info : "none");
+    g_clear_error (&err);
+    g_free (debug_info);
 
-  gst_element_set_state (data->pipeline, GST_STATE_READY);
+    gst_element_set_state (data->pipeline, GST_STATE_READY);
 }
 
 static void eos_cb (GstBus *bus, GstMessage *msg, CustomData *data) {
@@ -44,30 +49,54 @@ static void eos_cb (GstBus *bus, GstMessage *msg, CustomData *data) {
     gst_element_set_state (data->pipeline, GST_STATE_READY);
 }
 
-GstElement *gs_new_pipeline(char *description) {
+static GstFlowReturn sample_cb (GstElement *sink, CustomData *data) {
+    GstSample *sample = NULL;
+    GstBuffer *buf = NULL;
+    gpointer copy = NULL;
+    gsize copy_size = 0;
+
+    g_signal_emit_by_name (sink, "pull-sample", &sample);
+    if (sample) {
+        buf = gst_sample_get_buffer (sample);
+        if (buf) {
+            gst_buffer_extract_dup (
+                    buf, 0, gst_buffer_get_size (buf), 
+                    &copy, &copy_size
+                );
+            go_sample_cb (
+                    data->pipeline_id, 
+                    copy, copy_size, 
+                    GST_BUFFER_DURATION (buf)
+                );
+        }
+        gst_sample_unref (sample);
+    }
+
+    return GST_FLOW_OK;
+}
+
+GstElement *gs_new_pipeline (char *description, int id) {
     gst_init(NULL, NULL);
     GError *error = NULL;
-    CustomData data;
-    data.pipeline = gst_parse_launch (description, &error);
-    
-    GstBus *bus = gst_pipeline_get_bus (GST_PIPELINE (data.pipeline));
-    
-    g_signal_connect (G_OBJECT (bus), "message::error", (GCallback)error_cb, &data);
-    g_signal_connect (G_OBJECT (bus), "message::eos", (GCallback)eos_cb, &data);
 
+    CustomData *data = calloc(1, sizeof(CustomData));
+    data->pipeline = gst_parse_launch (description, &error);
+    data->pipeline_id = id;
+    
+    GstBus *bus = gst_pipeline_get_bus (GST_PIPELINE (data->pipeline));
+    g_signal_connect (G_OBJECT (bus), "message::error", (GCallback)error_cb, data);
+    g_signal_connect (G_OBJECT (bus), "message::eos", (GCallback)eos_cb, data);
     gst_bus_set_sync_handler (bus, (GstBusSyncHandler)bus_sync_handler, NULL, NULL);
     gst_object_unref (bus);
+  
+    GstElement *sink = gst_bin_get_by_name (GST_BIN(data->pipeline), "sink");
+    if (sink != NULL) {
+        g_object_set (sink, "emit-signals", TRUE, NULL);
+        g_signal_connect (sink, "new-sample", (GCallback)sample_cb, data);
+        gst_object_unref (sink);
+    }
     
-    return data.pipeline;
-}
-
-
-void gs_pipeline_start (GstElement *pipeline) {
-    gst_element_set_state (pipeline, GST_STATE_PLAYING);
-}
-
-void gs_pipeline_stop (GstElement *pipeline) { 
-    gst_element_set_state (pipeline, GST_STATE_NULL); 
+    return data->pipeline;
 }
 
 void gs_pipeline_set_overlay_handle (GstElement *pipeline, GdkWindow *window) {
@@ -86,8 +115,31 @@ void gs_pipeline_set_overlay_handle (GstElement *pipeline, GdkWindow *window) {
 #endif
 }
 
+void gs_pipeline_start (GstElement *pipeline) {
+    gst_element_set_state (pipeline, GST_STATE_PLAYING);
+}
+
+void gs_pipeline_stop (GstElement *pipeline) { 
+    gst_element_set_state (pipeline, GST_STATE_NULL); 
+}
+
+void gs_pipeline_destroy (GstElement *pipeline) { 
+    gst_element_set_state (pipeline, GST_STATE_NULL); 
+    gst_object_unref(pipeline);
+}
+
+void gs_pipeline_appsrc_push (GstElement *pipeline, void *buf, int len) {
+    GstElement *src = gst_bin_get_by_name (GST_BIN (pipeline), "src");
+    if (src != NULL) {
+        gpointer p = g_memdup (buf, len);
+        GstBuffer *buf = gst_buffer_new_wrapped (p, len);
+        gst_app_src_push_buffer (GST_APP_SRC (src), buf);
+        gst_object_unref (src);
+    }
+}
+
 /* GDK helper functions */
-GdkWindow *toGdkWindow (guintptr p) {
+GdkWindow *to_gdk_window (guintptr p) {
 	return (GDK_WINDOW (p));
 }
 

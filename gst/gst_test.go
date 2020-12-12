@@ -6,7 +6,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/lx7/devnet/internal/testutil"
+
 	"github.com/gotk3/gotk3/gtk"
+	"github.com/pion/webrtc/v2/pkg/media"
+	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -15,7 +19,8 @@ func init() {
 	os.Setenv("GST_DEBUG", "*:2")
 }
 
-func TestGStreamer_GTKWindow(t *testing.T) {
+func TestGStreamer(t *testing.T) {
+	hook := testutil.NewLogHook()
 	gtk.Init(nil)
 
 	win, err := gtk.WindowNew(gtk.WINDOW_TOPLEVEL)
@@ -29,14 +34,102 @@ func TestGStreamer_GTKWindow(t *testing.T) {
 	win.Connect("destroy", gtk.MainQuit)
 	win.ShowAll()
 
-	p := NewPipeline("videotestsrc ! videoconvert ! autovideosink")
-	p.SetOverlayHandle(da)
-	p.Start()
+	tests := []struct {
+		desc string
+		give *Pipeline
+		run  func(*testing.T)
+	}{
+		{
+			desc: "simple pipeline",
+			run: func(t *testing.T) {
+				p := NewPipeline(`
+					videotestsrc 
+					! videoconvert 
+					! autovideosink
+					`, 90000)
+				p.Start()
+				time.Sleep(1 * time.Second)
+				p.Stop()
+				p.Destroy()
+			},
+		},
+		{
+			desc: "gtk overlay",
+			run: func(t *testing.T) {
+				p := NewPipeline(`
+					videotestsrc 
+					! videoconvert 
+					! autovideosink
+					`, 90000)
+				err = p.SetOverlayHandle(da)
+				assert.NoError(t, err)
+				p.Start()
+				time.Sleep(1 * time.Second)
+				p.Stop()
+				p.Destroy()
+			},
+		},
+		{
+			desc: "nil overlay",
+			run: func(t *testing.T) {
+				p := NewPipeline(`
+					videotestsrc 
+					! videoconvert 
+					! autovideosink
+					`, 90000)
+				err = p.SetOverlayHandle(nil)
+				assert.Error(t, err)
+				p.Destroy()
+			},
+		},
+		{
+			desc: "appsrc push",
+			run: func(t *testing.T) {
+				caps := `
+					audio/x-raw, 
+					format=(string)S16LE,
+					channels=(int)1, 
+					rate=(int)44100, 
+					layout=(string)interleaved
+					`
+				src := NewPipeline(`
+					audiotestsrc 
+					! queue 
+					! appsink name=sink caps="`+caps+`"
+					`, 44100)
+				sink := NewPipeline(`
+					appsrc name=src caps="`+caps+`" is-live=true format=3 
+					! queue 
+					! autoaudiosink
+					`, 44100)
+				src.HandleSample(func(s media.Sample) {
+					sink.Push(s.Data)
+				})
+				sink.Start()
+				src.Start()
+
+				time.Sleep(1 * time.Second)
+
+				src.Stop()
+				src.Destroy()
+				sink.Stop()
+				sink.Destroy()
+			},
+		},
+	}
 
 	go func() {
-		time.Sleep(5 * time.Second)
+		time.Sleep(10 * time.Millisecond)
+		for _, tt := range tests {
+			t.Run(tt.desc, tt.run)
+		}
 		gtk.MainQuit()
 	}()
 
 	gtk.Main()
+
+	errorlog := hook.Entry(log.ErrorLevel)
+	if errorlog != nil {
+		t.Errorf("runtime error: '%v'", errorlog.Message)
+	}
 }

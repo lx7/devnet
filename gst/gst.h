@@ -17,13 +17,19 @@
 #include <gdk/gdkquartzwindow.h>
 #endif
 
-GstElement *gs_new_pipeline(char *pipeline);
+
+GstElement *gs_new_pipeline(char *pipeline, int id);
 void gs_pipeline_set_overlay_handle (GstElement *pipeline, GdkWindow *window);
 void gs_pipeline_start (GstElement *element);
 void gs_pipeline_stop (GstElement *element);
+void gs_pipeline_destroy (GstElement *element);
+void gs_pipeline_appsrc_push (GstElement *pipeline, void *buf, int len);
+
+/* go exports */
+extern void go_sample_cb(int pipeline_id, void *buf, int buflen, int samples);
 
 /* GDK helper functions */
-GdkWindow *toGdkWindow (guintptr p);
+GdkWindow *to_gdk_window (guintptr p);
 
 /* Unit test helper functions */
 void test_start_main_loop(void);
