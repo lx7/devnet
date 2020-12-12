@@ -10,6 +10,10 @@ import (
 	conf "github.com/spf13/viper"
 )
 
+func init() {
+	log.SetLevel(log.ErrorLevel)
+}
+
 // UserPass implements basic username / password verification.
 func UserPass(user string, pass string) bool {
 	sum := sha256.Sum256([]byte(fmt.Sprintf("%s+%s", user, pass)))
