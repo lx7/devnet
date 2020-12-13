@@ -5,8 +5,9 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/gorilla/websocket"
 	"github.com/lx7/devnet/proto"
+
+	"github.com/gorilla/websocket"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -16,18 +17,18 @@ type SignalSendReceiver interface {
 }
 
 type SignalSender interface {
-	Send(proto.Message) error
+	Send(*proto.Frame) error
 }
 
 type SignalReceiver interface {
-	Receive() <-chan proto.Message
+	Receive() <-chan *proto.Frame
 }
 
 // Signal provides signaling via websocket.
 type Signal struct {
 	conn *websocket.Conn
 
-	recv chan proto.Message
+	recv chan *proto.Frame
 	done chan bool
 }
 
@@ -53,7 +54,7 @@ func Dial(url string, h http.Header) (*Signal, error) {
 
 	s := &Signal{
 		conn: c,
-		recv: make(chan proto.Message),
+		recv: make(chan *proto.Frame),
 		done: make(chan bool),
 	}
 
@@ -61,8 +62,8 @@ func Dial(url string, h http.Header) (*Signal, error) {
 	return s, nil
 }
 
-func (s *Signal) Send(m proto.Message) error {
-	data, err := proto.Marshal(m)
+func (s *Signal) Send(f *proto.Frame) error {
+	data, err := f.Marshal()
 	if err != nil {
 		log.Warn("write: ", err)
 	}
@@ -74,7 +75,7 @@ func (s *Signal) Send(m proto.Message) error {
 	return nil
 }
 
-func (s *Signal) Receive() <-chan proto.Message {
+func (s *Signal) Receive() <-chan *proto.Frame {
 	return s.recv
 }
 
@@ -107,12 +108,12 @@ func (s *Signal) readPump() {
 			break
 		}
 
-		m, err := proto.Unmarshal(data)
-		if err != nil {
+		f := &proto.Frame{}
+		if err := f.Unmarshal(data); err != nil {
 			log.Error("unmarshal: ", err)
 			continue
 		}
-		s.recv <- m
+		s.recv <- f
 	}
 	log.Trace("stopping read pump")
 }

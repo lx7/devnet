@@ -32,34 +32,38 @@ func stateIdle(c *Controller) stateFunc {
 		case evOfferSent:
 			return stateCalling
 		}
-	case sig := <-c.signal.Receive():
-		switch m := sig.(type) {
-		case *proto.SDPMessage:
-			session, err := NewSession(m.Src)
+	case frame := <-c.signal.Receive():
+		switch p := frame.Payload.(type) {
+		case *proto.Frame_Sdp:
+			session, err := NewSession(frame.Src)
 			if err != nil {
 				log.Error("create session: ", err)
 				return stateIdle
 			}
 			c.session = session
-			if err := c.session.SetRemoteDescription(m.SDP); err != nil {
+			offerSD := proto.ToPion(p)
+			if err := c.session.SetRemoteDescription(offerSD); err != nil {
 				log.Error("set remote description: ", err)
 				return stateIdle
 			}
 
 			// accept connection
-			answer, err := c.session.CreateAnswer()
+			answerSD, err := c.session.CreateAnswer()
 			if err != nil {
 				log.Error("create answer: ", err)
 				return stateIdle
 			}
-			if err := c.signal.Send(&proto.SDPMessage{
-				Src: c.user,
-				Dst: c.session.Peer,
-				SDP: answer,
-			}); err != nil {
+
+			frame := &proto.Frame{
+				Src:     c.user,
+				Dst:     c.session.Peer,
+				Payload: proto.WithPion(answerSD),
+			}
+			if err = c.signal.Send(frame); err != nil {
 				log.Error("send answer: ", err)
 				return stateIdle
 			}
+
 			c.session.StartOutboundPipes()
 			return stateConnected
 		}
@@ -79,10 +83,11 @@ func stateCalling(c *Controller) stateFunc {
 			return stateIdle
 		}
 
-	case sig := <-c.signal.Receive():
-		switch m := sig.(type) {
-		case *proto.SDPMessage:
-			if err := c.session.SetRemoteDescription(m.SDP); err != nil {
+	case frame := <-c.signal.Receive():
+		switch p := frame.Payload.(type) {
+		case *proto.Frame_Sdp:
+			responseSD := proto.ToPion(p)
+			if err := c.session.SetRemoteDescription(responseSD); err != nil {
 				log.Error("set remote description: ", err)
 				return stateIdle
 			}

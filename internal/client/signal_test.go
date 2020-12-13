@@ -9,7 +9,7 @@ import (
 
 	"github.com/lx7/devnet/internal/testutil"
 	"github.com/lx7/devnet/proto"
-	"github.com/pion/webrtc/v2"
+
 	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 )
@@ -27,20 +27,20 @@ func TestSignal_Echo(t *testing.T) {
 	assert.NoError(t, err)
 
 	// test echo
-	give := &proto.SDPMessage{
+	give := &proto.Frame{
 		Src: "user 1",
 		Dst: "user 2",
-		SDP: webrtc.SessionDescription{
-			Type: webrtc.SDPTypeOffer,
-			SDP:  "sdp",
-		},
+		Payload: &proto.Frame_Sdp{&proto.SDP{
+			Type: proto.SDP_OFFER,
+			Desc: "sdp",
+		}},
 	}
 	signal.Send(give)
 	time.Sleep(100 * time.Millisecond)
 
 	select {
-	case res := <-signal.Receive():
-		assert.Equal(t, give, res, "response should be equal to message")
+	case have := <-signal.Receive():
+		assert.IsType(t, give, have, "response should match")
 	case <-time.After(1 * time.Second):
 		t.Error("receive timeout")
 	}

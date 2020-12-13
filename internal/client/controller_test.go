@@ -27,8 +27,8 @@ func TestController_States(t *testing.T) {
 	hook := testutil.NewLogHook()
 
 	signal := &fakeSignal{
-		recv: make(chan proto.Message, 1),
-		send: make(chan proto.Message, 1),
+		recv: make(chan *proto.Frame, 1),
+		send: make(chan *proto.Frame, 1),
 	}
 
 	//c.Run()
@@ -125,14 +125,14 @@ func fName(f stateFunc) string {
 
 type fakeSignal struct {
 	mock.Mock
-	recv chan proto.Message
-	send chan proto.Message
+	recv chan *proto.Frame
+	send chan *proto.Frame
 }
 
-func (s *fakeSignal) Send(proto.Message) error {
+func (s *fakeSignal) Send(*proto.Frame) error {
 	return nil
 }
 
-func (s *fakeSignal) Receive() <-chan proto.Message {
+func (s *fakeSignal) Receive() <-chan *proto.Frame {
 	return s.recv
 }

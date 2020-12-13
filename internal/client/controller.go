@@ -55,7 +55,6 @@ func (c *Controller) Run() {
 	}()
 
 	c.events <- evInitialized
-	c.session.StartGStreamer()
 	wg.Wait()
 }
 
@@ -73,13 +72,13 @@ func (c *Controller) StartShare(dst string) error {
 		return fmt.Errorf("share offer: %v", err)
 	}
 
-	err = c.signal.Send(&proto.SDPMessage{
-		Src: c.user,
-		Dst: dst,
-		SDP: offer,
-	})
-	if err != nil {
-		return fmt.Errorf("send offer: %v", err)
+	frame := &proto.Frame{
+		Src:     c.user,
+		Dst:     dst,
+		Payload: proto.WithPion(offer),
+	}
+	if err = c.signal.Send(frame); err != nil {
+		return fmt.Errorf("send frame: %v", err)
 	}
 	c.events <- evOfferSent
 	return nil
