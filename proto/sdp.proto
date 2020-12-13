@@ -1,0 +1,18 @@
+syntax = "proto3";
+package proto;
+
+option go_package = "github.com/lx7/devnet/proto";
+
+message SDP {
+    enum Type {
+        UNKNOWN = 0;
+        OFFER = 1;
+        PRANSWER = 2;
+        ANSWER = 3;
+        ROLLBACK = 4;
+    }
+
+    Type type = 1;
+    string desc = 2;
+}
+

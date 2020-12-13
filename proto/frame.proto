@@ -1,0 +1,19 @@
+syntax = "proto3";
+package proto;
+
+option go_package = "github.com/lx7/devnet/proto";
+
+import "proto/sdp.proto";
+import "proto/rcon.proto";
+
+message Frame {
+    string src = 1;
+    string dst = 2;
+    
+    oneof payload {
+        SDP sdp = 3;
+        RCon rcon = 4;
+    }
+}
+
+

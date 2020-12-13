@@ -10,7 +10,7 @@ import (
 type Switch interface {
 	Register(Client)
 	Unregister(Client)
-	Forward() chan<- *proto.SDPMessage
+	Forward() chan<- *proto.Frame
 	Run()
 	Shutdown()
 }
@@ -19,8 +19,8 @@ type Switch interface {
 type DefaultSwitch struct {
 	clients map[string]Client
 
-	forward    chan *proto.SDPMessage
-	broadcast  chan *proto.SDPMessage
+	forward    chan *proto.Frame
+	broadcast  chan *proto.Frame
 	register   chan Client
 	unregister chan Client
 	done       chan bool
@@ -29,8 +29,8 @@ type DefaultSwitch struct {
 // NewSwitch returns a new Switch instance.
 func NewSwitch() *DefaultSwitch {
 	return &DefaultSwitch{
-		broadcast:  make(chan *proto.SDPMessage),
-		forward:    make(chan *proto.SDPMessage),
+		broadcast:  make(chan *proto.Frame),
+		forward:    make(chan *proto.Frame),
 		register:   make(chan Client),
 		unregister: make(chan Client),
 		clients:    make(map[string]Client),
@@ -50,7 +50,7 @@ func (sw *DefaultSwitch) Unregister(c Client) {
 }
 
 // Forward returns the switches forward channel.
-func (sw *DefaultSwitch) Forward() chan<- *proto.SDPMessage {
+func (sw *DefaultSwitch) Forward() chan<- *proto.Frame {
 	return sw.forward
 }
 
@@ -67,25 +67,25 @@ func (sw *DefaultSwitch) Run() {
 				delete(sw.clients, client.Name())
 				close(client.Send())
 			}
-		case m := <-sw.broadcast:
+		case f := <-sw.broadcast:
 			for _, client := range sw.clients {
 				select {
-				case client.Send() <- m:
+				case client.Send() <- f:
 				default:
 					sw.unregister <- client
 				}
 			}
-		case m := <-sw.forward:
-			if client, ok := sw.clients[m.Dst]; ok {
+		case f := <-sw.forward:
+			if client, ok := sw.clients[f.Dst]; ok {
 				// TODO: verify sender
-				log.Tracef("forwarding message: %s -> %s", m.Src, m.Dst)
+				log.Tracef("forwarding message: %s -> %s", f.Src, f.Dst)
 				select {
-				case client.Send() <- m:
+				case client.Send() <- f:
 				default:
 					sw.unregister <- client
 				}
 			} else {
-				log.Tracef("client %s absent, discarding message", m.Dst)
+				log.Tracef("client %s absent, discarding message", f.Dst)
 			}
 		case <-sw.done:
 			return

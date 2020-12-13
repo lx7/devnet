@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/lx7/devnet/proto"
-	"github.com/pion/webrtc/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
@@ -13,7 +12,7 @@ import (
 func TestSwitch(t *testing.T) {
 	receiver := &fakeClient{
 		name: "receiver",
-		send: make(chan *proto.SDPMessage),
+		send: make(chan *proto.Frame),
 	}
 
 	sw := NewSwitch()
@@ -23,37 +22,25 @@ func TestSwitch(t *testing.T) {
 	// define cases
 	tests := []struct {
 		desc string
-		give *proto.SDPMessage
-		want *proto.SDPMessage
+		give *proto.Frame
+		want *proto.Frame
 	}{
 		{
 			desc: "forward sdp message",
-			give: &proto.SDPMessage{
+			give: &proto.Frame{
 				Src: "sender",
 				Dst: "receiver",
-				SDP: webrtc.SessionDescription{
-					Type: webrtc.SDPTypeOffer,
-					SDP:  "sdp",
-				},
 			},
-			want: &proto.SDPMessage{
+			want: &proto.Frame{
 				Src: "sender",
 				Dst: "receiver",
-				SDP: webrtc.SessionDescription{
-					Type: webrtc.SDPTypeOffer,
-					SDP:  "sdp",
-				},
 			},
 		},
 		{
 			desc: "unknown recipient",
-			give: &proto.SDPMessage{
+			give: &proto.Frame{
 				Src: "sender",
 				Dst: "unknown recipient",
-				SDP: webrtc.SessionDescription{
-					Type: webrtc.SDPTypeOffer,
-					SDP:  "sdp",
-				},
 			},
 			want: nil,
 		},
@@ -81,8 +68,8 @@ func TestSwitch(t *testing.T) {
 type fakeClient struct {
 	mock.Mock
 	name    string
-	send    chan *proto.SDPMessage
-	lastmsg *proto.SDPMessage
+	send    chan *proto.Frame
+	lastmsg *proto.Frame
 }
 
 func (c *fakeClient) Attach(Switch) {
@@ -94,7 +81,7 @@ func (c *fakeClient) Attach(Switch) {
 	}()
 }
 
-func (c *fakeClient) Send() chan<- *proto.SDPMessage {
+func (c *fakeClient) Send() chan<- *proto.Frame {
 	c.Called()
 	return c.send
 }
