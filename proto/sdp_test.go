@@ -7,7 +7,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestSDP_ToPion(t *testing.T) {
+func TestSDP_SessionDescription(t *testing.T) {
 	tests := []struct {
 		desc string
 		give *Frame_Sdp
@@ -28,7 +28,7 @@ func TestSDP_ToPion(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.desc, func(t *testing.T) {
-			assert.Equal(t, tt.want, ToPion(tt.give))
+			assert.Equal(t, tt.want, tt.give.SessionDescription())
 		})
 	}
 }
@@ -54,7 +54,7 @@ func TestSDP_PayloadWithPion(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.desc, func(t *testing.T) {
-			assert.Equal(t, tt.want, WithPion(tt.give))
+			assert.Equal(t, tt.want, PayloadWithSD(tt.give))
 		})
 	}
 }
