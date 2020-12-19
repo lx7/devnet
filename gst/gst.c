@@ -3,14 +3,14 @@
 #include <gst/app/gstappsrc.h>
 
 typedef struct _CustomData {
-  GstElement *pipeline;           
-  int pipeline_id;
+    GstElement *pipeline;           
+    int pipeline_id;
 } CustomData;
 
 static guintptr video_window_handle = 0;
 
 static GstBusSyncReply 
-bus_sync_handler (GstBus * bus, GstMessage * message, gpointer data) {
+bus_sync_handler (GstBus * bus, GstMessage * message, CustomData *data) {
     if (!gst_is_video_overlay_prepare_window_handle_message (message))
         return GST_BUS_PASS;
     
@@ -19,8 +19,6 @@ bus_sync_handler (GstBus * bus, GstMessage * message, gpointer data) {
 
         overlay = GST_VIDEO_OVERLAY (GST_MESSAGE_SRC (message));
         gst_video_overlay_set_window_handle (overlay, video_window_handle);
-    } else {
-        g_warning ("video_window_handle should be defined");
     }
 
     gst_message_unref (message);
@@ -30,16 +28,20 @@ bus_sync_handler (GstBus * bus, GstMessage * message, gpointer data) {
 static void error_cb (GstBus *bus, GstMessage *msg, CustomData *data) {
     GError *err;
     gchar *debug_info;
+    gchar *error_info;
 
     gst_message_parse_error (msg, &err, &debug_info);
-    g_printerr (
+
+    sprintf (error_info,
             "error from element %s: %s\n", 
             GST_OBJECT_NAME (msg->src), 
             err->message
         );
-    g_printerr ("debug: %s\n", debug_info ? debug_info : "none");
+    go_error_cb (data->pipeline_id, error_info);
+    go_debug_cb (data->pipeline_id, debug_info);
     g_clear_error (&err);
     g_free (debug_info);
+    g_free (error_info);
 
     gst_element_set_state (data->pipeline, GST_STATE_READY);
 }
@@ -77,19 +79,23 @@ static GstFlowReturn sample_cb (GstElement *sink, CustomData *data) {
 
 GstElement *gs_new_pipeline (char *description, int id) {
     gst_init(NULL, NULL);
-    GError *error = NULL;
+    GError *err = NULL;
 
-    CustomData *data = calloc(1, sizeof(CustomData));
-    data->pipeline = gst_parse_launch (description, &error);
+    CustomData *data = calloc(1, sizeof (CustomData));
+    data->pipeline = gst_parse_launch (description, &err);
+    if (err != NULL) {
+        go_error_cb (id, err->message);
+        return NULL;
+    }
     data->pipeline_id = id;
     
     GstBus *bus = gst_pipeline_get_bus (GST_PIPELINE (data->pipeline));
     g_signal_connect (G_OBJECT (bus), "message::error", (GCallback)error_cb, data);
     g_signal_connect (G_OBJECT (bus), "message::eos", (GCallback)eos_cb, data);
-    gst_bus_set_sync_handler (bus, (GstBusSyncHandler)bus_sync_handler, NULL, NULL);
+    gst_bus_set_sync_handler (bus, (GstBusSyncHandler)bus_sync_handler, data, NULL);
     gst_object_unref (bus);
   
-    GstElement *sink = gst_bin_get_by_name (GST_BIN(data->pipeline), "sink");
+    GstElement *sink = gst_bin_get_by_name (GST_BIN (data->pipeline), "sink");
     if (sink != NULL) {
         g_object_set (sink, "emit-signals", TRUE, NULL);
         g_signal_connect (sink, "new-sample", (GCallback)sample_cb, data);

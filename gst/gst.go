@@ -25,15 +25,18 @@ type Pipeline struct {
 	clock   float32
 }
 
-func NewPipeline(desc string, clock float32) *Pipeline {
+func NewPipeline(desc string, clock float32) (*Pipeline, error) {
 	descU := C.CString(desc)
 	defer C.free(unsafe.Pointer(descU))
 
 	p := &Pipeline{clock: clock}
 	p.id = pipes.register(p)
 	p.el = C.gs_new_pipeline(descU, C.int(p.id))
+	if p.el == nil {
+		return nil, errors.New("failed to create pipeline")
+	}
 
-	return p
+	return p, nil
 }
 
 func (p *Pipeline) SetOverlayHandle(w gtk.IWidget) error {
@@ -87,6 +90,26 @@ func go_sample_cb(ref C.int, buf unsafe.Pointer, bufl C.int, dur C.int) {
 		Samples: uint32(p.clock * float32(dur) / 1000000000),
 	})
 	C.free(buf)
+}
+
+//export go_error_cb
+func go_error_cb(ref C.int, msg *C.char) {
+	log.Errorf("gst pipeline %v: %v", int(ref), C.GoString(msg))
+}
+
+//export go_warning_cb
+func go_warning_cb(ref C.int, msg *C.char) {
+	log.Warningf("gst pipeline %v: %v", int(ref), C.GoString(msg))
+}
+
+//export go_info_cb
+func go_info_cb(ref C.int, msg *C.char) {
+	log.Infof("gst pipeline %v: %v", int(ref), C.GoString(msg))
+}
+
+//export go_debug_cb
+func go_debug_cb(ref C.int, msg *C.char) {
+	log.Debugf("gst pipeline %v: %v", int(ref), C.GoString(msg))
 }
 
 type pipeRegister struct {

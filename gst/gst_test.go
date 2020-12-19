@@ -1,7 +1,6 @@
 package gst
 
 import (
-	"os"
 	"runtime"
 	"testing"
 	"time"
@@ -12,11 +11,13 @@ import (
 	"github.com/pion/webrtc/v2/pkg/media"
 	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func init() {
 	runtime.LockOSThread()
-	os.Setenv("GST_DEBUG", "*:2")
+	log.SetLevel(log.DebugLevel)
+	//os.Setenv("GST_DEBUG", "*:2")
 }
 
 func TestGStreamer(t *testing.T) {
@@ -42,11 +43,12 @@ func TestGStreamer(t *testing.T) {
 		{
 			desc: "simple pipeline",
 			run: func(t *testing.T) {
-				p := NewPipeline(`
+				p, err := NewPipeline(`
 					videotestsrc 
 					! videoconvert 
 					! autovideosink
 					`, 90000)
+				require.NoError(t, err)
 				p.Start()
 				time.Sleep(1 * time.Second)
 				p.Stop()
@@ -56,11 +58,12 @@ func TestGStreamer(t *testing.T) {
 		{
 			desc: "gtk overlay",
 			run: func(t *testing.T) {
-				p := NewPipeline(`
+				p, err := NewPipeline(`
 					videotestsrc 
 					! videoconvert 
 					! autovideosink
 					`, 90000)
+				require.NoError(t, err)
 				err = p.SetOverlayHandle(da)
 				assert.NoError(t, err)
 				p.Start()
@@ -72,11 +75,12 @@ func TestGStreamer(t *testing.T) {
 		{
 			desc: "nil overlay",
 			run: func(t *testing.T) {
-				p := NewPipeline(`
+				p, err := NewPipeline(`
 					videotestsrc 
 					! videoconvert 
 					! autovideosink
 					`, 90000)
+				require.NoError(t, err)
 				err = p.SetOverlayHandle(nil)
 				assert.Error(t, err)
 				p.Destroy()
@@ -92,16 +96,20 @@ func TestGStreamer(t *testing.T) {
 					rate=(int)44100, 
 					layout=(string)interleaved
 					`
-				src := NewPipeline(`
+				src, err := NewPipeline(`
 					audiotestsrc 
 					! queue 
 					! appsink name=sink caps="`+caps+`"
 					`, 44100)
-				sink := NewPipeline(`
+				require.NoError(t, err)
+
+				sink, err := NewPipeline(`
 					appsrc name=src caps="`+caps+`" is-live=true format=3 
 					! queue 
 					! autoaudiosink
 					`, 44100)
+				require.NoError(t, err)
+
 				src.HandleSample(func(s media.Sample) {
 					sink.Push(s.Data)
 				})

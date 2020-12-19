@@ -27,6 +27,10 @@ void gs_pipeline_appsrc_push (GstElement *pipeline, void *buf, int len);
 
 /* go exports */
 extern void go_sample_cb(int pipeline_id, void *buf, int buflen, int samples);
+extern void go_error_cb(int pipeline_id, char *msg);
+extern void go_warning_cb(int pipeline_id, char *msg);
+extern void go_info_cb(int pipeline_id, char *msg);
+extern void go_debug_cb(int pipeline_id, char *msg);
 
 /* GDK helper functions */
 GdkWindow *to_gdk_window (guintptr p);
