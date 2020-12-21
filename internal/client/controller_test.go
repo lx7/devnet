@@ -9,15 +9,12 @@ import (
 
 	"github.com/lx7/devnet/internal/testutil"
 	"github.com/lx7/devnet/proto"
+	"github.com/pion/webrtc/v2"
 
 	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
-
-func init() {
-	//log.SetLevel(log.ErrorLevel)
-}
 
 type checkFunc func(c *Controller) error
 type transitionFunc func(c *Controller) error
@@ -25,6 +22,14 @@ type transitionFunc func(c *Controller) error
 func TestController_States(t *testing.T) {
 	username := "testuser"
 	hook := testutil.NewLogHook()
+
+	webrtcConf := webrtc.Configuration{
+		ICEServers: []webrtc.ICEServer{
+			{
+				URLs: []string{"stun:stun.l.google.com:19302"},
+			},
+		},
+	}
 
 	signal := &fakeSignal{
 		recv: make(chan *proto.Frame, 1),
@@ -57,7 +62,7 @@ func TestController_States(t *testing.T) {
 			desc:      "idle -> calling",
 			giveState: stateIdle,
 			transition: func(c *Controller) error {
-				return c.StartShare("user2")
+				return c.AddPeer("user2")
 			},
 			check: func(*Controller) error {
 				return nil
@@ -89,7 +94,7 @@ func TestController_States(t *testing.T) {
 	// run tests
 	for _, tt := range tests {
 		t.Run(tt.desc, func(t *testing.T) {
-			c, err := NewController(signal, username)
+			c, err := NewController(signal, username, webrtcConf)
 			require.NoError(t, err, "constructor should not return error")
 
 			var state stateFunc
@@ -104,7 +109,7 @@ func TestController_States(t *testing.T) {
 			require.NoError(t, tt.transition(c), "transition should not return error")
 
 			wg.Wait()
-			require.Equal(t, fName(tt.wantState), fName(state))
+			require.Equal(t, funcName(tt.wantState), funcName(state))
 			require.NoError(t, tt.check(c))
 
 			// check for error log entries
@@ -118,9 +123,29 @@ func TestController_States(t *testing.T) {
 	}
 }
 
-func fName(f stateFunc) string {
+func TestController_EventHandler(t *testing.T) {
+	c, err := NewController(nil, "testuser", webrtc.Configuration{})
+	require.NoError(t, err)
+
+	h := &fakeEventHandler{}
+	h.On("handlerFunc").Return()
+
+	c.Handle(evUndefined, h.handlerFunc)
+	c.notify(evUndefined)
+	h.AssertExpectations(t)
+}
+
+func funcName(f stateFunc) string {
 	p := reflect.ValueOf(f).Pointer()
 	return runtime.FuncForPC(p).Name()
+}
+
+type fakeEventHandler struct {
+	mock.Mock
+}
+
+func (h *fakeEventHandler) handlerFunc() {
+	h.Called()
 }
 
 type fakeSignal struct {

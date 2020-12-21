@@ -10,13 +10,8 @@ import (
 	"github.com/lx7/devnet/internal/testutil"
 	"github.com/lx7/devnet/proto"
 
-	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 )
-
-func init() {
-	log.SetLevel(log.InfoLevel)
-}
 
 func TestSignal_Echo(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(testutil.Echo))

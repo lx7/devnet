@@ -35,36 +35,36 @@ func stateIdle(c *Controller) stateFunc {
 	case frame := <-c.signal.Receive():
 		switch p := frame.Payload.(type) {
 		case *proto.Frame_Sdp:
-			session, err := NewSession(frame.Src)
+
+			session, err := SessionWithOffer(SessionOpts{
+				Peer:              frame.Src,
+				wconf:             c.wconf,
+				ScreenCastOverlay: c.scOverlay,
+			}, p)
 			if err != nil {
 				log.Error("create session: ", err)
 				return stateIdle
 			}
 			c.session = session
-			offerSD := proto.ToPion(p)
-			if err := c.session.SetRemoteDescription(offerSD); err != nil {
-				log.Error("set remote description: ", err)
-				return stateIdle
-			}
 
 			// accept connection
-			answerSD, err := c.session.CreateAnswer()
+			answer, err := c.session.CreateAnswer()
 			if err != nil {
 				log.Error("create answer: ", err)
 				return stateIdle
 			}
 
 			frame := &proto.Frame{
-				Src:     c.user,
+				Src:     c.name,
 				Dst:     c.session.Peer,
-				Payload: proto.WithPion(answerSD),
+				Payload: &proto.Frame_Sdp{answer},
 			}
 			if err = c.signal.Send(frame); err != nil {
 				log.Error("send answer: ", err)
 				return stateIdle
 			}
 
-			c.session.StartOutboundPipes()
+			c.session.Voice.Start()
 			return stateConnected
 		}
 	}
@@ -86,12 +86,12 @@ func stateCalling(c *Controller) stateFunc {
 	case frame := <-c.signal.Receive():
 		switch p := frame.Payload.(type) {
 		case *proto.Frame_Sdp:
-			responseSD := proto.ToPion(p)
-			if err := c.session.SetRemoteDescription(responseSD); err != nil {
-				log.Error("set remote description: ", err)
+			if err := c.session.HandleAnswer(p); err != nil {
+				log.Error("sdp: ", err)
 				return stateIdle
 			}
-			c.session.StartOutboundPipes()
+			//c.session.Voice.Start()
+			c.session.ScreenCast.Start()
 			return stateConnected
 		}
 	}
