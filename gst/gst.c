@@ -28,20 +28,18 @@ bus_sync_handler (GstBus * bus, GstMessage * message, CustomData *data) {
 static void error_cb (GstBus *bus, GstMessage *msg, CustomData *data) {
     GError *err;
     gchar *debug_info;
-    gchar *error_info;
+    char error_info[512];
 
     gst_message_parse_error (msg, &err, &debug_info);
-
     sprintf (error_info,
-            "error from element %s: %s\n", 
-            GST_OBJECT_NAME (msg->src), 
-            err->message
-        );
+        "error from element %s: %s\n", 
+        GST_OBJECT_NAME (msg->src), 
+        err->message
+    );
     go_error_cb (data->pipeline_id, error_info);
-    go_debug_cb (data->pipeline_id, debug_info);
+    go_error_cb (data->pipeline_id, debug_info);
     g_clear_error (&err);
     g_free (debug_info);
-    g_free (error_info);
 
     gst_element_set_state (data->pipeline, GST_STATE_READY);
 }
@@ -85,11 +83,11 @@ GstElement *gs_new_pipeline (char *description, int id) {
     data->pipeline = gst_parse_launch (description, &err);
     if (err != NULL) {
         go_error_cb (id, err->message);
-        return NULL;
     }
     data->pipeline_id = id;
     
     GstBus *bus = gst_pipeline_get_bus (GST_PIPELINE (data->pipeline));
+    gst_bus_add_signal_watch (bus);
     g_signal_connect (G_OBJECT (bus), "message::error", (GCallback)error_cb, data);
     g_signal_connect (G_OBJECT (bus), "message::eos", (GCallback)eos_cb, data);
     gst_bus_set_sync_handler (bus, (GstBusSyncHandler)bus_sync_handler, data, NULL);

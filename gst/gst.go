@@ -58,18 +58,18 @@ func (p *Pipeline) HandleSample(f SampleHandlerFunc) {
 	p.handler = f
 }
 
+func (p *Pipeline) Push(buf []byte) {
+	bytes := C.CBytes(buf)
+	defer C.free(bytes)
+	C.gs_pipeline_appsrc_push(p.el, bytes, C.int(len(buf)))
+}
+
 func (p *Pipeline) Start() {
 	C.gs_pipeline_start(p.el)
 }
 
 func (p *Pipeline) Stop() {
 	C.gs_pipeline_stop(p.el)
-}
-
-func (p *Pipeline) Push(buf []byte) {
-	bytes := C.CBytes(buf)
-	defer C.free(bytes)
-	C.gs_pipeline_appsrc_push(p.el, bytes, C.int(len(buf)))
 }
 
 func (p *Pipeline) Destroy() {

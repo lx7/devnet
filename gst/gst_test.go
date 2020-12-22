@@ -1,6 +1,7 @@
 package gst
 
 import (
+	"os"
 	"runtime"
 	"testing"
 	"time"
@@ -17,7 +18,7 @@ import (
 func init() {
 	runtime.LockOSThread()
 	log.SetLevel(log.DebugLevel)
-	//os.Setenv("GST_DEBUG", "*:2")
+	os.Setenv("GST_DEBUG", "*:2")
 }
 
 func TestGStreamer(t *testing.T) {
