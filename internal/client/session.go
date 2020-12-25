@@ -1,9 +1,9 @@
 package client
 
 import (
-	"errors"
 	"fmt"
 	"io"
+	"reflect"
 	"time"
 
 	"github.com/gotk3/gotk3/gtk"
@@ -14,132 +14,205 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-type SessionOpts struct {
-	Self, Peer string
-	wconf      webrtc.Configuration
+const (
+	LocalScreen int = iota
+	LocalCamera
+	LocalVoice
+	_maxLocalStreams
+)
 
+const (
+	RemoteScreen int = iota
+	RemoteCamera
+	RemoteVoice
+	_maxRemoteStreams
+)
+
+type SessionOpts struct {
+	Self              string
+	WebRTCConf        webrtc.Configuration
 	ScreenCastOverlay *gtk.DrawingArea
+	CameraOverlay     *gtk.DrawingArea
+}
+
+type SessionI interface {
+	Connect(peer string) error
+	StartStream(int)
+	Events() <-chan Event
 }
 
 type Session struct {
-	Peer string
-	Conn *webrtc.PeerConnection
+	Self, Peer string
 
-	Voice      *localStream
-	ScreenCast *localStream
+	conn   *webrtc.PeerConnection
+	signal SignalSendReceiver
 
-	scOverlay *gtk.DrawingArea
-
-	AudioIn *remoteStream
-	VideoIn *remoteStream
+	h      map[reflect.Type]handler
+	events chan Event
+	ls     []*LocalStream
+	rs     []*RemoteStream
 }
 
-func NewSession(so SessionOpts) (*Session, error) {
-	conn, err := webrtc.NewPeerConnection(so.wconf)
+func NewSession(signal SignalSendReceiver, so SessionOpts) (*Session, error) {
+	conn, err := webrtc.NewPeerConnection(so.WebRTCConf)
 	if err != nil {
 		return nil, err
 	}
 
 	s := Session{
-		Peer:      so.Peer,
-		Conn:      conn,
-		scOverlay: so.ScreenCastOverlay,
+		Self:   so.Self,
+		conn:   conn,
+		signal: signal,
+		ls:     make([]*LocalStream, _maxLocalStreams),
+		rs:     make([]*RemoteStream, _maxRemoteStreams),
+		events: make(chan Event, 5),
+		h:      make(map[reflect.Type]handler),
 	}
 
-	s.Voice, err = LocalStream(s.Conn, &LocalStreamOpts{
+	voicePreset, err := gst.GetPreset(gst.Voice, gst.Opus, gst.Software)
+	if err != nil {
+		return nil, err
+	}
+	screenPreset, err := gst.GetPreset(gst.Screen, gst.H264, gst.VAAPI)
+	if err != nil {
+		return nil, err
+	}
+
+	s.ls[LocalVoice], err = NewLocalStream(s.conn, &LocalStreamOpts{
 		ID:     "devnet-voice",
-		Source: "autoaudiosrc",
-		Codec:  gst.Opus,
+		Preset: voicePreset,
 	})
 	if err != nil {
 		return nil, err
 	}
-
-	s.ScreenCast, err = LocalStream(s.Conn, &LocalStreamOpts{
+	s.ls[LocalScreen], err = NewLocalStream(s.conn, &LocalStreamOpts{
 		ID:     "devnet-screen",
-		Source: "ximagesrc use-damage=false ! video/x-raw,framerate=25/1 ",
-		Codec:  gst.H264,
+		Preset: screenPreset,
 	})
 	if err != nil {
 		return nil, err
 	}
 
-	s.Conn.OnICEConnectionStateChange(s.handleICEStateChange)
-	s.Conn.OnTrack(s.handleTrack)
+	_, err = s.conn.AddTransceiverFromKind(webrtc.RTPCodecTypeVideo)
+	if err != nil {
+		return nil, err
+	}
+	_, err = s.conn.AddTransceiverFromKind(webrtc.RTPCodecTypeAudio)
+	if err != nil {
+		return nil, err
+	}
 
-	_, err = s.Conn.AddTransceiverFromKind(webrtc.RTPCodecTypeVideo)
+	s.rs[RemoteVoice], err = NewRemoteStream(RemoteStreamOpts{
+		ID:     "devnet-voice",
+		Preset: voicePreset,
+	})
 	if err != nil {
 		return nil, err
 	}
-	_, err = s.Conn.AddTransceiverFromKind(webrtc.RTPCodecTypeAudio)
+	s.rs[RemoteScreen], err = NewRemoteStream(RemoteStreamOpts{
+		ID:      "devnet-screen",
+		Preset:  screenPreset,
+		Overlay: so.ScreenCastOverlay,
+	})
 	if err != nil {
 		return nil, err
 	}
+
+	s.conn.OnICEConnectionStateChange(s.handleICEStateChange)
+	s.conn.OnTrack(s.handleTrack)
 
 	return &s, nil
 }
 
-func SessionWithOffer(so SessionOpts, sd proto.SessionDescription) (*Session, error) {
-	if !sd.IsType(proto.SDP_OFFER) {
-		return nil, fmt.Errorf("expected sdp type: OFFER")
+func (s *Session) Connect(peer string) error {
+	if peer == s.Self {
+		return fmt.Errorf("peer name equals self")
 	}
 
-	s, err := NewSession(so)
+	offer, err := s.conn.CreateOffer(nil)
 	if err != nil {
-		return nil, err
+		return fmt.Errorf("create offer: %v", err)
 	}
 
-	err = s.Conn.SetRemoteDescription(sd.SessionDescription())
-	if err != nil {
-		return nil, fmt.Errorf("set remote description: %v", err)
+	frame := &proto.Frame{
+		Src:     s.Self,
+		Dst:     peer,
+		Payload: proto.PayloadWithSD(offer),
+	}
+	if err = s.signal.Send(frame); err != nil {
+		return fmt.Errorf("send frame: %v", err)
 	}
 
-	return s, nil
-}
-
-func (s *Session) CreateOffer() (*proto.SDP, error) {
-	offer, err := s.Conn.CreateOffer(nil)
-	if err != nil {
-		return nil, fmt.Errorf("create offer: %v", err)
-	}
-	return proto.SDPWithSD(offer), nil
-}
-
-func (s *Session) CreateAnswer() (*proto.SDP, error) {
-	answer, err := s.Conn.CreateAnswer(nil)
-	if err != nil {
-		return nil, fmt.Errorf("create answer: %v", err)
-	}
-
-	err = s.Conn.SetLocalDescription(answer)
-	if err != nil {
-		return nil, fmt.Errorf("set local description: %v", err)
-	}
-	return proto.SDPWithSD(answer), nil
-}
-
-func (s *Session) HandleAnswer(sd proto.SessionDescription) error {
-	if !sd.IsType(proto.SDP_ANSWER) {
-		return errors.New("expected sdp type: ANSWER")
-	}
-
-	err := s.Conn.SetRemoteDescription(sd.SessionDescription())
-	if err != nil {
-		return fmt.Errorf("set remote description: %v", err)
-	}
+	s.Peer = peer
 	return nil
+}
+
+func (s *Session) Run() {
+	for frame := range s.signal.Receive() {
+
+		switch p := frame.Payload.(type) {
+		case *proto.Frame_Sdp:
+			log.Tracef("sdp message received: %v", p)
+
+			if frame.Dst != s.Self {
+				log.Warnf("%v received frame for %v", s.Self, frame.Dst)
+				continue
+			}
+
+			switch p.Sdp.Type {
+			case proto.SDP_OFFER:
+				s.Peer = frame.Src
+				err := s.conn.SetRemoteDescription(p.SessionDescription())
+				answer, err := s.conn.CreateAnswer(nil)
+				if err != nil {
+					log.Error("create answer: ", err)
+					continue
+				}
+
+				err = s.conn.SetLocalDescription(answer)
+				if err != nil {
+					log.Error("set local description: ", err)
+					continue
+				}
+
+				frame := &proto.Frame{
+					Src:     s.Self,
+					Dst:     s.Peer,
+					Payload: proto.PayloadWithSD(answer),
+				}
+				if err = s.signal.Send(frame); err != nil {
+					log.Error("send answer: ", err)
+					continue
+				}
+			case proto.SDP_ANSWER:
+				err := s.conn.SetRemoteDescription(p.SessionDescription())
+				if err != nil {
+					log.Errorf("set remote description: %v", err)
+					continue
+				}
+			}
+		}
+	}
+	log.Info("session closed")
+
+}
+
+func (s *Session) StartStream(id int) {
+	s.ls[id].Send()
 }
 
 func (s *Session) handleICEStateChange(cs webrtc.ICEConnectionState) {
 	log.Info("ICE connection state has changed: ", cs.String())
 	switch cs {
 	case webrtc.ICEConnectionStateConnected:
+		s.events <- EventSessionStart{}
 		return
 	case webrtc.ICEConnectionStateDisconnected:
 		s.Close()
 	case webrtc.ICEConnectionStateFailed:
 	case webrtc.ICEConnectionStateClosed:
 	}
+	s.events <- EventSessionEnd{}
 }
 
 func (s *Session) handleTrack(track *webrtc.Track, receiver *webrtc.RTPReceiver) {
@@ -147,7 +220,7 @@ func (s *Session) handleTrack(track *webrtc.Track, receiver *webrtc.RTPReceiver)
 	go func() {
 		ticker := time.NewTicker(time.Second * 3)
 		for range ticker.C {
-			err := s.Conn.WriteRTCP([]rtcp.Packet{
+			err := s.conn.WriteRTCP([]rtcp.Packet{
 				&rtcp.PictureLossIndication{MediaSSRC: track.SSRC()},
 			})
 			if err == io.ErrClosedPipe {
@@ -158,26 +231,17 @@ func (s *Session) handleTrack(track *webrtc.Track, receiver *webrtc.RTPReceiver)
 		}
 	}()
 
+	/*
+		codec, err := gst.CodecByName(t.Codec().Name)
+		if err != nil {
+			return nil, fmt.Errorf("codec for new track: %v", err)
+		}
+	*/
 	switch kind := track.Kind(); kind {
 	case webrtc.RTPCodecTypeAudio:
-		var err error
-		s.AudioIn, err = RemoteStream(track, RemoteStreamOpts{
-			Sink: "autoaudiosink",
-		})
-		if err != nil {
-			return
-		}
-		s.AudioIn.Receive()
+		s.rs[RemoteVoice].Receive(track)
 	case webrtc.RTPCodecTypeVideo:
-		var err error
-		s.VideoIn, err = RemoteStream(track, RemoteStreamOpts{
-			Sink:    "autovideosink",
-			Overlay: s.scOverlay,
-		})
-		if err != nil {
-			return
-		}
-		s.VideoIn.Receive()
+		s.rs[RemoteScreen].Receive(track)
 	default:
 		log.Errorf("track of unkown kind: %d", track.Kind())
 		return
@@ -186,13 +250,21 @@ func (s *Session) handleTrack(track *webrtc.Track, receiver *webrtc.RTPReceiver)
 }
 
 func (s *Session) Close() {
-	log.Info("session closed")
+	for _, stream := range s.rs {
+		if stream == nil {
+			continue
+		}
+		stream.Close()
+	}
+	for _, stream := range s.rs {
+		if stream == nil {
+			continue
+		}
+		stream.Close()
+	}
+	s.conn.Close()
+}
 
-	s.Voice.Close()
-	s.ScreenCast.Close()
-
-	s.AudioIn.Close()
-	s.VideoIn.Close()
-
-	s.Conn.Close()
+func (s *Session) Events() <-chan Event {
+	return s.events
 }

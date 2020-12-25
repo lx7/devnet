@@ -14,22 +14,23 @@ import (
 
 type LocalStreamOpts struct {
 	ID     string
-	Source string
-	Codec  gst.Codec
+	Preset *gst.Preset
 }
 
-type localStream struct {
+type StreamSender interface {
+	Send()
+	Close()
+}
+
+type LocalStream struct {
 	track    *webrtc.Track
-	codec    gst.Codec
 	pipeline *gst.Pipeline
 }
 
-const outboundAppSink = "appsink name=sink"
+func NewLocalStream(c *webrtc.PeerConnection, so *LocalStreamOpts) (*LocalStream, error) {
+	name := fmt.Sprintf("%s-%s-out", so.Preset.Kind, so.Preset.Codec)
 
-func LocalStream(c *webrtc.PeerConnection, so *LocalStreamOpts) (*localStream, error) {
-	name := fmt.Sprintf("%s-%s-out", so.Codec.Kind, so.Codec.Name)
-
-	t, err := c.NewTrack(so.Codec.PayloadType, rand.Uint32(), name, so.ID)
+	t, err := c.NewTrack(so.Preset.PayloadType, rand.Uint32(), name, so.ID)
 	if err != nil {
 		return nil, fmt.Errorf("new local track: %v", err)
 	}
@@ -38,15 +39,12 @@ func LocalStream(c *webrtc.PeerConnection, so *LocalStreamOpts) (*localStream, e
 		return nil, fmt.Errorf("add local track: %v", err)
 	}
 
-	s := &localStream{
-		codec: so.Codec,
+	s := &LocalStream{
 		track: t,
 	}
 
-	descr := fmt.Sprintf("%s %s! %s", so.Source, so.Codec.Enc, outboundAppSink)
-	log.Debugf("new local pipeline: %s", descr)
-
-	s.pipeline, err = gst.NewPipeline(descr, s.codec.Clock)
+	log.Debugf("new local pipeline: %s", so.Preset.Local)
+	s.pipeline, err = gst.NewPipeline(so.Preset.Local, so.Preset.Clock)
 	if err != nil {
 		return nil, fmt.Errorf("new pipeline: %v", err)
 	}
@@ -55,53 +53,52 @@ func LocalStream(c *webrtc.PeerConnection, so *LocalStreamOpts) (*localStream, e
 	return s, nil
 }
 
-func (s *localStream) Start() {
+func (s *LocalStream) Send() {
 	s.pipeline.Start()
 }
 
-func (s *localStream) Close() {
-	if s == nil || s.pipeline == nil {
-		return
-	}
-	s.pipeline.Stop()
-	s.track = nil
-}
-
-func (s *localStream) handleSample(sample media.Sample) {
+func (s *LocalStream) handleSample(sample media.Sample) {
 	if err := s.track.WriteSample(sample); err != nil {
 		log.Errorf("write sample to track: %v", err)
 	}
 }
 
+func (s *LocalStream) Close() {
+	if s == nil || s.pipeline == nil {
+		return
+	}
+	s.pipeline.Stop()
+	s.pipeline = nil
+	s.track = nil
+}
+
 type RemoteStreamOpts struct {
-	Sink    string
+	ID      string
+	Preset  *gst.Preset
 	Overlay *gtk.DrawingArea
 }
 
-type remoteStream struct {
+type StreamReceiver interface {
+	SetOverlay(gtk.IWidget) error
+	Receive(*webrtc.Track)
+	Close()
+}
+
+type RemoteStream struct {
 	track    *webrtc.Track
-	codec    gst.Codec
 	pipeline *gst.Pipeline
 }
 
-const inboundAppSrc = "appsrc name=src format=time is-live=true do-timestamp=true"
+func NewRemoteStream(so RemoteStreamOpts) (*RemoteStream, error) {
+	s := &RemoteStream{}
 
-func RemoteStream(t *webrtc.Track, so RemoteStreamOpts) (*remoteStream, error) {
-	codec, err := gst.CodecByName(t.Codec().Name)
-	if err != nil {
-		return nil, fmt.Errorf("codec for new track: %v", err)
-	}
-	s := &remoteStream{
-		codec: codec,
-		track: t,
-	}
-
-	descr := fmt.Sprintf("%s %s! %s", inboundAppSrc, codec.Dec, so.Sink)
-	log.Debugf("new inbound pipeline: %s", descr)
-	s.pipeline, err = gst.NewPipeline(descr, codec.Clock)
+	log.Debugf("new inbound pipeline: %s", so.Preset.Remote)
+	p, err := gst.NewPipeline(so.Preset.Remote, so.Preset.Clock)
 	if err != nil {
 		return nil, fmt.Errorf("new pipeline: %v", err)
 	}
+	s.pipeline = p
+
 	if so.Overlay != nil {
 		s.pipeline.SetOverlayHandle(so.Overlay)
 	}
@@ -109,15 +106,17 @@ func RemoteStream(t *webrtc.Track, so RemoteStreamOpts) (*remoteStream, error) {
 	return s, nil
 }
 
-func (s *remoteStream) SetOverlayHandle(w gtk.IWidget) error {
+func (s *RemoteStream) SetOverlay(w gtk.IWidget) error {
 	return s.pipeline.SetOverlayHandle(w)
 }
 
-func (s *remoteStream) Receive() {
+func (s *RemoteStream) Receive(t *webrtc.Track) {
+	s.track = t
 	s.pipeline.Start()
+
 	buf := make([]byte, 1400)
 	for {
-		i, err := s.track.Read(buf)
+		i, err := t.Read(buf)
 		if err == io.EOF {
 			s.pipeline.Stop()
 			return
@@ -128,10 +127,10 @@ func (s *remoteStream) Receive() {
 	}
 }
 
-func (s *remoteStream) Close() {
+func (s *RemoteStream) Close() {
 	if s == nil || s.pipeline == nil {
 		return
 	}
-	s.pipeline.Stop()
+	//s.pipeline.Destroy()
 	s.track = nil
 }

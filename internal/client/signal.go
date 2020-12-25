@@ -40,7 +40,7 @@ const (
 )
 
 func Dial(url string, h http.Header) (*Signal, error) {
-	log.Info("dialing: ", url)
+	log.Info("signaling: dial ", url)
 	dialer := &websocket.Dialer{
 		Proxy:            http.ProxyFromEnvironment,
 		HandshakeTimeout: handshakeTimeout,
@@ -51,6 +51,7 @@ func Dial(url string, h http.Header) (*Signal, error) {
 	if err != nil {
 		return nil, err
 	}
+	log.Info("signaling: channel connected")
 
 	s := &Signal{
 		conn: c,
@@ -65,7 +66,7 @@ func Dial(url string, h http.Header) (*Signal, error) {
 func (s *Signal) Send(f *proto.Frame) error {
 	data, err := f.Marshal()
 	if err != nil {
-		log.Warn("write: ", err)
+		log.Warn("signaling: write: ", err)
 	}
 
 	err = s.conn.WriteMessage(websocket.TextMessage, data)
@@ -103,17 +104,17 @@ func (s *Signal) readPump() {
 		_, data, err := s.conn.ReadMessage()
 		if err != nil {
 			if !websocket.IsCloseError(err, websocket.CloseNormalClosure) {
-				log.Error("read message: ", err)
+				log.Error("signaling: read message: ", err)
 			}
 			break
 		}
 
 		f := &proto.Frame{}
 		if err := f.Unmarshal(data); err != nil {
-			log.Error("unmarshal: ", err)
+			log.Error("signaling: unmarshal: ", err)
 			continue
 		}
 		s.recv <- f
 	}
-	log.Trace("stopping read pump")
+	log.Info("signaling: done")
 }
