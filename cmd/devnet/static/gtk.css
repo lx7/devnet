@@ -1,0 +1,7 @@
+button.share-button:checked {
+    color: white;
+    background-color: green;
+    opacity: 0.95;
+    background-image: none;
+}
+

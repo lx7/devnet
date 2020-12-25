@@ -2,4 +2,7 @@ bin/
 _tmp/
 coverage.out
 coverage.html
+*.ui~
+*.pb.go
+*.gen.go
 
