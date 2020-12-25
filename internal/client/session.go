@@ -29,14 +29,14 @@ const (
 )
 
 type SessionOpts struct {
-	Self              string
-	WebRTCConf        webrtc.Configuration
-	ScreenCastOverlay *gtk.DrawingArea
-	CameraOverlay     *gtk.DrawingArea
+	Self          string
+	WebRTCConf    webrtc.Configuration
+	CameraOverlay *gtk.DrawingArea
 }
 
 type SessionI interface {
 	Connect(peer string) error
+	SetOverlay(int, *gtk.DrawingArea)
 	StartStream(int)
 	Events() <-chan Event
 }
@@ -93,26 +93,16 @@ func NewSession(signal SignalSendReceiver, so SessionOpts) (*Session, error) {
 		return nil, err
 	}
 
-	_, err = s.conn.AddTransceiverFromKind(webrtc.RTPCodecTypeVideo)
-	if err != nil {
-		return nil, err
-	}
-	_, err = s.conn.AddTransceiverFromKind(webrtc.RTPCodecTypeAudio)
-	if err != nil {
-		return nil, err
-	}
-
-	s.rs[RemoteVoice], err = NewRemoteStream(RemoteStreamOpts{
+	s.rs[RemoteVoice], err = NewRemoteStream(s.conn, RemoteStreamOpts{
 		ID:     "devnet-voice",
 		Preset: voicePreset,
 	})
 	if err != nil {
 		return nil, err
 	}
-	s.rs[RemoteScreen], err = NewRemoteStream(RemoteStreamOpts{
-		ID:      "devnet-screen",
-		Preset:  screenPreset,
-		Overlay: so.ScreenCastOverlay,
+	s.rs[RemoteScreen], err = NewRemoteStream(s.conn, RemoteStreamOpts{
+		ID:     "devnet-screen",
+		Preset: screenPreset,
 	})
 	if err != nil {
 		return nil, err
@@ -149,7 +139,6 @@ func (s *Session) Connect(peer string) error {
 
 func (s *Session) Run() {
 	for frame := range s.signal.Receive() {
-
 		switch p := frame.Payload.(type) {
 		case *proto.Frame_Sdp:
 			log.Tracef("sdp message received: %v", p)
@@ -199,6 +188,10 @@ func (s *Session) Run() {
 
 func (s *Session) StartStream(id int) {
 	s.ls[id].Send()
+}
+
+func (s *Session) SetOverlay(id int, o *gtk.DrawingArea) {
+	s.rs[id].SetOverlay(o)
 }
 
 func (s *Session) handleICEStateChange(cs webrtc.ICEConnectionState) {

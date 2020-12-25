@@ -73,9 +73,8 @@ func (s *LocalStream) Close() {
 }
 
 type RemoteStreamOpts struct {
-	ID      string
-	Preset  *gst.Preset
-	Overlay *gtk.DrawingArea
+	ID     string
+	Preset *gst.Preset
 }
 
 type StreamReceiver interface {
@@ -89,8 +88,13 @@ type RemoteStream struct {
 	pipeline *gst.Pipeline
 }
 
-func NewRemoteStream(so RemoteStreamOpts) (*RemoteStream, error) {
+func NewRemoteStream(c *webrtc.PeerConnection, so RemoteStreamOpts) (*RemoteStream, error) {
 	s := &RemoteStream{}
+
+	_, err := c.AddTransceiverFromKind(webrtc.NewRTPCodecType(string(so.Preset.Kind)))
+	if err != nil {
+		return nil, err
+	}
 
 	log.Debugf("new inbound pipeline: %s", so.Preset.Remote)
 	p, err := gst.NewPipeline(so.Preset.Remote, so.Preset.Clock)
@@ -98,10 +102,6 @@ func NewRemoteStream(so RemoteStreamOpts) (*RemoteStream, error) {
 		return nil, fmt.Errorf("new pipeline: %v", err)
 	}
 	s.pipeline = p
-
-	if so.Overlay != nil {
-		s.pipeline.SetOverlayHandle(so.Overlay)
-	}
 
 	return s, nil
 }
