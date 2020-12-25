@@ -1,5 +1,4 @@
-APP := dnd
-#PLATFORMS := linux/arm linux/amd64
+APP := devnet
 PLATFORMS := linux/amd64
 DISTDIR = ./bin
 CMDDIR = ./cmd/'$(APP)'
@@ -15,8 +14,9 @@ all: release
 run: 
 	go run . -c ../../configs/server.yaml
 
-test:
-	go test ./...
+generate:
+	go generate ./...
+	protoc --go_out . --go_opt=paths=source_relative proto/*.proto
 
 check:
 	go vet ./...
@@ -24,7 +24,10 @@ check:
 	golint ./...
 	staticcheck ./...
 
-release: check test $(PLATFORMS)
+test:
+	go test ./...
+
+release: generate check test $(PLATFORMS)
 
 $(PLATFORMS):
 	GOOS=$(os) GOARCH=$(arch) go build -o '$(DISTDIR)/$(APP)-$(os)-$(arch)' '$(CMDDIR)'
@@ -42,6 +45,9 @@ clean:
 	go mod tidy
 
 deps:
+	$(info === Installing dependencies. This may take a while. ===)
 	go get honnef.co/go/tools/cmd/staticcheck
+	go get github.com/gotk3/gotk3/gtk
+	go get github.com/mjibson/esc
 
-.PHONY: run release $(PLATFORMS) clean
+.PHONY: run release $(PLATFORMS) cover clean deps
