@@ -14,6 +14,7 @@ import (
 
 func init() {
 	configure("../../configs/client.yaml")
+
 }
 
 func TestClientCmd_Config(t *testing.T) {
@@ -69,8 +70,14 @@ func TestClientCmd_Run(t *testing.T) {
 	conf.Set("auth.pass", "test")
 
 	// create test server
-	s := server.New("127.0.0.1:40101")
-	go s.Serve("/channel")
+	sconf := conf.New()
+	sconf.SetConfigFile("../../configs/server.yaml")
+	if err := sconf.ReadInConfig(); err != nil {
+		log.Fatal("failed reading server config: ", err)
+	}
+	sconf.Set("signaling.addr", "127.0.0.1:40101")
+	s := server.New(sconf)
+	go s.Serve()
 	time.Sleep(100 * time.Millisecond)
 
 	go func() {

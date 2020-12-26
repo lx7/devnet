@@ -14,7 +14,7 @@ func init() {
 	configure("../../configs/server.yaml")
 }
 
-func TestServerCmdConfig(t *testing.T) {
+func TestServerCmd_Config(t *testing.T) {
 	// flag defaults
 	exp := "info"
 	if got := conf.GetString("loglevel"); got != exp {
@@ -23,19 +23,19 @@ func TestServerCmdConfig(t *testing.T) {
 
 	// value from config file
 	exp = "/channel"
-	if got := conf.GetString("server.wspath"); got != exp {
+	if got := conf.GetString("signaling.wspath"); got != exp {
 		t.Errorf("get wspath setting from config: exp: '%v' got: '%v'", exp, got)
 	}
 
 }
 
-func TestServerCmdResponse(t *testing.T) {
+func TestServerCmd_Response(t *testing.T) {
 	go run()
 
 	// allow for some startup time
 	time.Sleep(100 * time.Millisecond)
 
-	resp, err := http.Get(fmt.Sprintf("http://%s", conf.GetString("server.addr")))
+	resp, err := http.Get(fmt.Sprintf("http://%s", conf.GetString("signaling.addr")))
 	if err != nil {
 		t.Fatal(err)
 	}

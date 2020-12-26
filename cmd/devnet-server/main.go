@@ -38,9 +38,8 @@ func configure(confpath string) {
 }
 
 func run() {
-	s := server.New(conf.GetString("server.addr"))
-	log.Infof("listening on %v", conf.GetString("server.addr"))
-	err := s.Serve(conf.GetString("server.wspath"))
+	s := server.New(conf.GetViper())
+	err := s.Serve()
 	if err != nil {
 		log.Fatal("http server: ", err)
 	}

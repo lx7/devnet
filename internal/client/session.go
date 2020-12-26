@@ -28,12 +28,6 @@ const (
 	_maxRemoteStreams
 )
 
-type SessionOpts struct {
-	Self          string
-	WebRTCConf    webrtc.Configuration
-	CameraOverlay *gtk.DrawingArea
-}
-
 type SessionI interface {
 	Connect(peer string) error
 	SetOverlay(int, *gtk.DrawingArea)
@@ -53,16 +47,16 @@ type Session struct {
 	rs     []*RemoteStream
 }
 
-func NewSession(signal SignalSendReceiver, so SessionOpts) (*Session, error) {
-	conn, err := webrtc.NewPeerConnection(so.WebRTCConf)
+func NewSession(self string, signal SignalSendReceiver) (*Session, error) {
+	conn, err := webrtc.NewPeerConnection(webrtc.Configuration{})
 	if err != nil {
-		return nil, err
-	}
+		return nil, fmt.Errorf("new peer connection: %v", err)
 
+	}
 	s := Session{
-		Self:   so.Self,
-		conn:   conn,
+		Self:   self,
 		signal: signal,
+		conn:   conn,
 		ls:     make([]*LocalStream, _maxLocalStreams),
 		rs:     make([]*RemoteStream, _maxRemoteStreams),
 		events: make(chan Event, 5),
@@ -118,6 +112,9 @@ func (s *Session) Connect(peer string) error {
 	if peer == s.Self {
 		return fmt.Errorf("peer name equals self")
 	}
+	if s.conn == nil {
+		return fmt.Errorf("webrtc connection not initialized")
+	}
 
 	offer, err := s.conn.CreateOffer(nil)
 	if err != nil {
@@ -140,6 +137,19 @@ func (s *Session) Connect(peer string) error {
 func (s *Session) Run() {
 	for frame := range s.signal.Receive() {
 		switch p := frame.Payload.(type) {
+		case *proto.Frame_Config:
+			log.Tracef("config message received: %v", p)
+
+			err := s.conn.SetConfiguration(webrtc.Configuration{
+				ICEServers: []webrtc.ICEServer{{
+					URLs: []string{p.Config.Webrtc.Iceservers[0].Url},
+				}},
+			})
+			if err != nil {
+				log.Error("configure webrtc: ", err)
+				continue
+			}
+
 		case *proto.Frame_Sdp:
 			log.Tracef("sdp message received: %v", p)
 

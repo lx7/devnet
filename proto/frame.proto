@@ -3,6 +3,7 @@ package proto;
 
 option go_package = "github.com/lx7/devnet/proto";
 
+import "proto/config.proto";
 import "proto/sdp.proto";
 import "proto/rcon.proto";
 
@@ -11,8 +12,9 @@ message Frame {
     string dst = 2;
     
     oneof payload {
-        SDP sdp = 3;
-        RCon rcon = 4;
+        Config config = 3;
+        SDP sdp = 4;
+        RCon rcon = 5;
     }
 }
 

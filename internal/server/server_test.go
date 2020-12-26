@@ -10,18 +10,26 @@ import (
 	pb "github.com/golang/protobuf/proto"
 	"github.com/gorilla/websocket"
 	log "github.com/sirupsen/logrus"
-	conf "github.com/spf13/viper"
+	"github.com/spf13/viper"
 	"github.com/stretchr/testify/require"
 )
 
+var conf *viper.Viper
+
 func init() {
-	log.SetLevel(log.InfoLevel)
+	conf = viper.New()
+	conf.SetConfigFile("../../configs/server.yaml")
+	if err := conf.ReadInConfig(); err != nil {
+		log.Fatal("failed reading config file: ", err)
+	}
+	conf.Set("signaling.addr", "127.0.0.1:40100")
 
-	conf.Set("users.testuser",
-		"09d9623a149a4a0c043befcb448c9c3324be973230188ba412c008a2929f31d0")
-
-	s := New("127.0.0.1:40100")
-	go s.Serve("/channel")
+	go func() {
+		s := New(conf)
+		if err := s.Serve(); err != nil {
+			log.Fatal("serve: ", err)
+		}
+	}()
 	time.Sleep(20 * time.Millisecond)
 }
 
@@ -42,6 +50,23 @@ func TestServer_Echo(t *testing.T) {
 		want     *proto.Frame
 	}{
 		{
+			desc:     "client config",
+			give:     nil,
+			giveType: websocket.BinaryMessage,
+			want: &proto.Frame{
+				Dst: "testuser",
+				Payload: &proto.Frame_Config{&proto.Config{
+					Webrtc: &proto.Config_WebRTC{
+						Iceservers: []*proto.Config_WebRTC_ICEServer{
+							&proto.Config_WebRTC_ICEServer{
+								Url: "stun:localhost:19302",
+							},
+						},
+					},
+				}},
+			},
+		},
+		{
 			desc:     "echo",
 			give:     &proto.Frame{Src: "testuser", Dst: "testuser"},
 			giveType: websocket.BinaryMessage,
@@ -52,12 +77,13 @@ func TestServer_Echo(t *testing.T) {
 	// execute test cases
 	for _, tt := range tests {
 		t.Run(tt.desc, func(t *testing.T) {
-			out, err := tt.give.Marshal()
-			require.NoError(t, err, "marshal should not cause an error")
-			err = ws.WriteMessage(tt.giveType, out)
-			require.NoError(t, err, "ws write should not cause an error")
-			time.Sleep(10 * time.Millisecond)
-
+			if tt.give != nil {
+				out, err := tt.give.Marshal()
+				require.NoError(t, err, "marshal should not cause an error")
+				err = ws.WriteMessage(tt.giveType, out)
+				require.NoError(t, err, "ws write should not cause an error")
+				time.Sleep(10 * time.Millisecond)
+			}
 			_, in, err := ws.ReadMessage()
 			require.NoError(t, err, "ws read should not cause an error")
 

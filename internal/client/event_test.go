@@ -8,9 +8,7 @@ import (
 )
 
 func TestEvent(t *testing.T) {
-	s, err := NewSession(nil, SessionOpts{
-		Self: "testuser",
-	})
+	s, err := NewSession("testuser", nil)
 	assert.NoError(t, err)
 
 	c := &fakeEventConsumer{}

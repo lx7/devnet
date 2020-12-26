@@ -9,7 +9,6 @@ import (
 	"github.com/lx7/devnet/internal/auth"
 	"github.com/lx7/devnet/internal/client"
 	"github.com/lx7/devnet/internal/gui"
-	"github.com/pion/webrtc/v2"
 	log "github.com/sirupsen/logrus"
 	conf "github.com/spf13/viper"
 )
@@ -56,18 +55,9 @@ func run() int {
 		log.Fatal("dial: ", err)
 	}
 
-	wconf := webrtc.Configuration{
-		ICEServers: []webrtc.ICEServer{{
-			URLs: []string{conf.GetString("stun.URL")},
-		}},
-	}
-
 	sChan := make(chan *client.Session, 1)
 	go func() {
-		session, err := client.NewSession(signal, client.SessionOpts{
-			Self:       u,
-			WebRTCConf: wconf,
-		})
+		session, err := client.NewSession(u, signal)
 		if err != nil {
 			log.Fatal("client controller: ", err)
 		}

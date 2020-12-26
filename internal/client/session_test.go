@@ -8,8 +8,8 @@ import (
 	"github.com/gotk3/gotk3/gtk"
 	"github.com/lx7/devnet/internal/testutil"
 	"github.com/lx7/devnet/proto"
-	"github.com/pion/webrtc/v2"
 	log "github.com/sirupsen/logrus"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -33,26 +33,32 @@ func TestSession_Flow(t *testing.T) {
 		signal1.other = signal2
 		signal2.other = signal1
 
-		conf := webrtc.Configuration{
-			ICEServers: []webrtc.ICEServer{{URLs: []string{
-				"stun:stun.l.google.com:19302",
-			}}},
-		}
-
-		s1, err := NewSession(signal1, SessionOpts{
-			Self:       "user1",
-			WebRTCConf: conf,
-		})
-		require.NoError(t, err)
+		s1, err := NewSession("user1", signal1)
+		assert.NoError(t, err)
 		go s1.Run()
 
-		s2, err := NewSession(signal2, SessionOpts{
-			Self:       "user2",
-			WebRTCConf: conf,
-		})
-		require.NoError(t, err)
+		s2, err := NewSession("user2", signal2)
+		assert.NoError(t, err)
 		go s2.Run()
 
+		// configure
+		conf := &proto.Frame{
+			Dst: "user1",
+			Payload: &proto.Frame_Config{&proto.Config{
+				Webrtc: &proto.Config_WebRTC{
+					Iceservers: []*proto.Config_WebRTC_ICEServer{
+						&proto.Config_WebRTC_ICEServer{
+							Url: "stun:localhost:19302",
+						},
+					},
+				},
+			}},
+		}
+		signal1.recv <- conf
+		signal2.recv <- conf
+		time.Sleep(10 * time.Millisecond)
+
+		// test webrtc connection
 		err = s1.Connect("user2")
 		require.NoError(t, err)
 

@@ -1,11 +1,11 @@
 package client
 
 import (
+	"errors"
 	"fmt"
 	"reflect"
 
 	"github.com/lx7/devnet/proto"
-	"github.com/pkg/errors"
 )
 
 type Event interface{}
@@ -27,7 +27,7 @@ func (s *Session) Handle(f interface{}, args ...interface{}) error {
 	rf := reflect.ValueOf(f)
 	kind := rf.Type().Kind()
 	if kind != reflect.Func {
-		return errors.Errorf("type mismatch. want: func, have: %v", kind)
+		return fmt.Errorf("type mismatch. want: func, have: %v", kind)
 	}
 
 	rt := rf.Type()

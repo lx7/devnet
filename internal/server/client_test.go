@@ -31,17 +31,6 @@ func TestClient_Echo(t *testing.T) {
 	assert.Equal(t, client.Name(), "client 1", "client name should match")
 	sw.Register(client)
 
-	// test echo
-	/*
-	   any, err := anypb.New(&proto.SDP{
-	   		Type: proto.SDP_OFFER,
-	   		Desc: "sdp",
-	   	})
-	   	require.NoError(t, err, "conversion to pb.Any should not cause an error")
-	   	if err != nil {
-	   	}
-	*/
-
 	give := &proto.Frame{
 		Src: "user 1",
 		Dst: "user 2",

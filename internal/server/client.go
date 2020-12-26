@@ -4,6 +4,7 @@ import (
 	"sync"
 
 	"github.com/lx7/devnet/proto"
+	"github.com/spf13/viper"
 
 	"github.com/gorilla/websocket"
 	log "github.com/sirupsen/logrus"
@@ -26,7 +27,7 @@ type DefaultClient struct {
 }
 
 // NewClient returns a new Client instance.
-func NewClient(conn *websocket.Conn, name string) Client {
+func NewClient(conn *websocket.Conn, name string) *DefaultClient {
 	c := &DefaultClient{
 		name: name,
 		conn: conn,
@@ -34,6 +35,22 @@ func NewClient(conn *websocket.Conn, name string) Client {
 		send: make(chan *proto.Frame, 64),
 	}
 	return c
+}
+
+// Configure sends configuration data for ICE servers etc. to the client.
+func (c *DefaultClient) Configure(conf *viper.Viper) error {
+	var cc *proto.Config
+	if err := conf.UnmarshalExact(&cc); err != nil {
+		return err
+	}
+
+	frame := &proto.Frame{
+		Dst:     c.name,
+		Payload: &proto.Frame_Config{cc},
+	}
+	c.Send() <- frame
+
+	return nil
 }
 
 // Attach connects to a switch and starts message processing. Returns on
