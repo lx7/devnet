@@ -1,0 +1,41 @@
+signaling:
+  # URL of the signaling server. Use the wss:// scheme for TLS.
+  url: ws://localhost:8080/channel
+auth:
+  user: user1
+  pass: test                             
+  # 
+  # passcmd is executed to retrieve the user password if pass is undefined.
+  # TODO: implement passcmd
+  #
+  passcmd: 'pass devnet | head -n 1' 
+video:
+  # 
+  # Set encoder to enable GPU hardware acceleration. 
+  #
+  # Possible values:
+  # Linux:  
+  #   - "vaapi" for Intel (Broadwell and newer)
+  #   - "nvenc" for nVidia (Kepler and newer)
+  #   - "software" to disable hardware support
+  # OSX:  
+  #   - "osxvt" for Intel, nVidia, AMD
+  #   - "software" to disable hardware support
+  #
+  encode: software
+  # 
+  # Set encoder to enable GPU hardware acceleration. In addition to the 
+  # platform specific values, decode also supports "auto" to let the 
+  # application figure out which decoder pipeline might work best.
+  #
+  decode: auto
+log:
+  #
+  # Set the log level. 
+  #
+  # Possible values: [trace|debug|info|warn|error]
+  # Default: info
+  #
+  level: info
+
+
