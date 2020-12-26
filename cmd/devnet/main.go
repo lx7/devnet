@@ -19,37 +19,38 @@ const (
 	appID   = "net.echocluster.devnet"
 )
 
+var g *gui.GUI
+
 func init() {
 	runtime.LockOSThread()
-	os.Setenv("GST_DEBUG", "*:2")
 }
 
 func configure(confpath string) {
 	conf.SetDefault("config", confpath)
-	conf.SetDefault("loglevel", "info")
-
-	conf.BindEnv("loglevel", "DEVNET_LOGLEVEL")
+	conf.SetDefault("log.level", "info")
 	conf.BindEnv("config", "DEVNET_CONFIG")
-	conf.BindEnv("user.name", "DEVNET_USER")
-	conf.BindEnv("user.pass", "DEVNET_PASS")
 
 	conf.SetConfigFile(conf.GetString("config"))
 	if err := conf.ReadInConfig(); err != nil {
 		log.Fatal("failed reading config file: ", err)
 	}
 
-	loglevel, err := log.ParseLevel(conf.GetString("loglevel"))
+	loglevel, err := log.ParseLevel(conf.GetString("log.level"))
 	if err != nil {
 		log.Error("failed to set log level: ", err)
 	}
 	log.SetLevel(loglevel)
+
+	if log.GetLevel() >= log.InfoLevel {
+		os.Setenv("GST_DEBUG", "*:2")
+	}
 }
 
-func run() {
-	header := auth.BasicAuthHeader(
-		conf.GetString("user.name"),
-		conf.GetString("user.pass"),
-	)
+func run() int {
+	u := conf.GetString("auth.user")
+	p := conf.GetString("auth.pass")
+	header := auth.BasicAuthHeader(u, p)
+
 	signal, err := client.Dial(conf.GetString("signaling.URL"), header)
 	if err != nil {
 		log.Fatal("dial: ", err)
@@ -64,7 +65,7 @@ func run() {
 	sChan := make(chan *client.Session, 1)
 	go func() {
 		session, err := client.NewSession(signal, client.SessionOpts{
-			Self:       conf.GetString("user.name"),
+			Self:       u,
 			WebRTCConf: wconf,
 		})
 		if err != nil {
@@ -74,14 +75,18 @@ func run() {
 		session.Run()
 	}()
 
-	g, err := gui.New(appID, <-sChan)
+	g, err = gui.New(appID, <-sChan)
 	if err != nil {
 		log.Fatal(err)
 	}
-	os.Exit(g.Run())
+	return g.Run()
+}
+
+func quit() {
+	g.Quit()
 }
 
 func main() {
 	configure(fmt.Sprintf("%s/%s/config.yaml", xdg.ConfigHome, appName))
-	run()
+	os.Exit(run())
 }
