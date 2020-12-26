@@ -13,17 +13,21 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestPreset_PresetBySource(t *testing.T) {
-	p, err := PresetBySource(SourceTypeScreen, H264, AccelTypeNone)
-	assert.NoError(t, err)
-	assert.NotNil(t, p)
+func TestPreset_GetPreset(t *testing.T) {
+	p, err := GetPreset(Screen, H264, Software)
+	require.NoError(t, err)
+	assert.Equal(t, H264, p.Codec)
 
-	p, err = PresetBySource(SourceTypeScreen, H264, codecAccel(""))
-	assert.Error(t, err)
+	p, err = GetPreset(Voice, Opus, Software)
+	require.NoError(t, err)
+	assert.Equal(t, Opus, p.Codec)
+
+	p, err = GetPreset(Screen, H264, codecAccel(""))
+	require.Error(t, err)
 	assert.Nil(t, p)
 
-	p, err = PresetBySource(SourceTypeScreen, codecName(""), AccelTypeNone)
-	assert.Error(t, err)
+	p, err = GetPreset(Screen, codecName(""), Software)
+	require.Error(t, err)
 	assert.Nil(t, p)
 }
 
@@ -35,11 +39,24 @@ func TestPreset_Permutations(t *testing.T) {
 	var perms []perm
 
 	// set up permutations of all screen presets
-	ps := PresetsBySource(SourceTypeScreen)
+	ps := PresetsBySource(Screen)
 	for _, p1 := range ps {
 		// encode into rtp packets (normally done by the webrtc layer)
 		p1.Local = strings.ReplaceAll(
 			p1.Local, "! appsink", "! rtph264pay ! appsink")
+		for _, p2 := range ps {
+			perms = append(perms, perm{p1, p2})
+		}
+	}
+
+	// set up permutations of all voice presets
+	ps = PresetsBySource(Voice)
+	for _, p1 := range ps {
+		// encode into rtp packets (normally done by the webrtc layer)
+		p1.Local = strings.ReplaceAll(
+			p1.Local, "! appsink", "! rtpopuspay ! appsink")
+		p1.Local = strings.ReplaceAll(
+			p1.Local, "autoaudiosrc", "audiotestsrc")
 		for _, p2 := range ps {
 			perms = append(perms, perm{p1, p2})
 		}
@@ -59,8 +76,8 @@ func TestPreset_Permutations(t *testing.T) {
 			local.HandleSample(func(s media.Sample) {
 				remote.Push(s.Data)
 			})
-			local.Start()
 			remote.Start()
+			local.Start()
 
 			time.Sleep(1 * time.Second)
 

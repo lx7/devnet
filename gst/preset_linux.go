@@ -1,4 +1,4 @@
-// +build dragonfly freebsd netbsd openbsd linux
+// +build linux
 
 package gst
 
@@ -7,10 +7,10 @@ import (
 )
 
 var screen_H264_SW = Preset{
-	CodecKind:  VIDEO,
-	CodecName:  H264,
-	Accel:      AccelTypeNone,
-	SourceType: SourceTypeScreen,
+	Kind:   Video,
+	Codec:  H264,
+	Accel:  Software,
+	Source: Screen,
 	Local: `
 			ximagesrc use-damage=false 
 			! video/x-raw,framerate=25/1
@@ -29,7 +29,7 @@ var screen_H264_SW = Preset{
 			! application/x-rtp
 			! rtph264depay 
     		! queue 
-			! decodebin 
+			! decodebin
 			! videoconvert 
 			! autovideosink sync=false
 			`,
@@ -38,10 +38,10 @@ var screen_H264_SW = Preset{
 }
 
 var screen_H264_VAAPI = Preset{
-	CodecKind:  VIDEO,
-	CodecName:  H264,
-	Accel:      AccelTypeVAAPI,
-	SourceType: SourceTypeScreen,
+	Kind:   Video,
+	Codec:  H264,
+	Accel:  VAAPI,
+	Source: Screen,
 	Local: `
 			ximagesrc use-damage=false 
 			! video/x-raw,framerate=25/1
@@ -70,11 +70,37 @@ var screen_H264_VAAPI = Preset{
 	PayloadType: webrtc.DefaultPayloadTypeH264,
 }
 
+var screen_H264_NVCODEC = Preset{
+	Kind:   Video,
+	Codec:  H264,
+	Accel:  NVCODEC,
+	Source: Screen,
+	Local: `
+			ximagesrc use-damage=false 
+			! video/x-raw,framerate=25/1
+			! videoconvert
+			! queue
+			! nvh264enc 
+				preset=low-latency
+			! video/x-h264,stream-format=byte-stream,profile=high
+			! appsink name=sink
+			`,
+	Remote: `
+			appsrc name=src format=time is-live=true do-timestamp=true
+			! application/x-rtp
+			! rtph264depay 
+			! decodebin 
+			! glimagesink sync=false
+			`,
+	Clock:       ClockRateVideo,
+	PayloadType: webrtc.DefaultPayloadTypeH264,
+}
+
 var voice_OPUS_SW = Preset{
-	CodecKind:  AUDIO,
-	CodecName:  Opus,
-	Accel:      AccelTypeNone,
-	SourceType: SourceTypeVoice,
+	Kind:   Audio,
+	Codec:  Opus,
+	Accel:  Software,
+	Source: Voice,
 	Local: `
 			autoaudiosrc
 			! opusenc
@@ -85,6 +111,7 @@ var voice_OPUS_SW = Preset{
 			! application/x-rtp, payload=96, encoding-name=OPUS
 			! rtpopusdepay 
 			! decodebin 
+			! queue
 			! autoaudiosink
 			`,
 	Clock:       ClockRateVideo,
@@ -95,5 +122,6 @@ var voice_OPUS_SW = Preset{
 var presets = []Preset{
 	screen_H264_SW,
 	screen_H264_VAAPI,
+	//screen_H264_NVCODEC,
 	voice_OPUS_SW,
 }

@@ -5,6 +5,7 @@
 typedef struct _CustomData {
     GstElement *pipeline;           
     int pipeline_id;
+    guintptr video_window_handle;
 } CustomData;
 
 static guintptr video_window_handle = 0;

@@ -7,8 +7,8 @@ import (
 type codecKind string
 
 const (
-	AUDIO codecKind = "audio"
-	VIDEO codecKind = "video"
+	Audio codecKind = "audio"
+	Video codecKind = "video"
 )
 
 type codecName string
@@ -21,18 +21,19 @@ const (
 type codecAccel string
 
 const (
-	AccelTypeNone  codecAccel = "SW"
-	AccelTypeVAAPI codecAccel = "VAAPI"
-	AcceltypeVDPAU codecAccel = "VDPAU"
-	AcceltypeOSXVT codecAccel = "VideoToolbox"
+	Software codecAccel = "Software"
+	VAAPI    codecAccel = "VAAPI"
+	NVCODEC  codecAccel = "NVCODEC"
+	VDPAU    codecAccel = "VDPAU"
+	OSXVT    codecAccel = "OSXVT"
 )
 
 type sourceType string
 
 const (
-	SourceTypeScreen sourceType = "screen"
-	SourceTypeCamera sourceType = "camera"
-	SourceTypeVoice  sourceType = "voice"
+	Screen sourceType = "screen"
+	Camera sourceType = "camera"
+	Voice  sourceType = "voice"
 )
 
 const (
@@ -41,10 +42,10 @@ const (
 )
 
 type Preset struct {
-	CodecKind   codecKind
-	CodecName   codecName
+	Kind        codecKind
+	Codec       codecName
 	Accel       codecAccel
-	SourceType  sourceType
+	Source      sourceType
 	Local       string
 	Remote      string
 	Clock       float32
@@ -52,49 +53,25 @@ type Preset struct {
 }
 
 func (c *Preset) String() string {
-	return fmt.Sprintf("%s/%s (%s)", c.CodecName, c.Accel, c.SourceType)
+	return fmt.Sprintf("%s/%s (%s)", c.Codec, c.Accel, c.Source)
 }
 
-func PresetBySource(t sourceType, n codecName, a codecAccel) (*Preset, error) {
+func GetPreset(s sourceType, c codecName, a codecAccel) (*Preset, error) {
 	for _, p := range presets {
-		if p.SourceType == t && p.CodecName == n && p.Accel == a {
+		if p.Source == s && p.Codec == c && p.Accel == a {
 			return &p, nil
 		}
 	}
-	return nil, fmt.Errorf("preset %s/%s (%s) not found", n, a, t)
+	return nil, fmt.Errorf("preset %s/%s (%s) not found", c, a, s)
 }
 
-func PresetsBySource(t sourceType) []Preset {
+func PresetsBySource(s sourceType) []Preset {
 	var ps []Preset
 	for _, p := range presets {
-		if p.SourceType != t {
+		if p.Source != s {
 			continue
 		}
 		ps = append(ps, p)
 	}
 	return ps
-}
-
-type presetMap map[codecName]map[codecAccel]*Preset
-
-var vPresets, sPresets, cPresets presetMap
-
-func mkPresetMap(t sourceType) presetMap {
-	m := make(presetMap)
-	for _, p := range presets {
-		if p.SourceType != t {
-			continue
-		}
-		if m[p.CodecName] == nil {
-			m[p.CodecName] = make(map[codecAccel]*Preset)
-		}
-		m[p.CodecName][p.Accel] = &p
-	}
-	return m
-}
-
-func init() {
-	vPresets = mkPresetMap(SourceTypeVoice)
-	sPresets = mkPresetMap(SourceTypeScreen)
-	cPresets = mkPresetMap(SourceTypeCamera)
 }

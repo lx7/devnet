@@ -8,6 +8,7 @@ import (
 
 	"github.com/lx7/devnet/internal/testutil"
 
+	"github.com/gotk3/gotk3/glib"
 	"github.com/gotk3/gotk3/gtk"
 	"github.com/pion/webrtc/v2/pkg/media"
 	log "github.com/sirupsen/logrus"
@@ -53,6 +54,9 @@ func TestGStreamer(t *testing.T) {
 				p.Start()
 				time.Sleep(1 * time.Second)
 				p.Stop()
+				time.Sleep(1 * time.Second)
+				p.Start()
+				time.Sleep(1 * time.Second)
 				p.Destroy()
 			},
 		},
@@ -69,7 +73,6 @@ func TestGStreamer(t *testing.T) {
 				assert.NoError(t, err)
 				p.Start()
 				time.Sleep(1 * time.Second)
-				p.Stop()
 				p.Destroy()
 			},
 		},
@@ -119,9 +122,7 @@ func TestGStreamer(t *testing.T) {
 
 				time.Sleep(1 * time.Second)
 
-				src.Stop()
 				src.Destroy()
-				sink.Stop()
 				sink.Destroy()
 			},
 		},
@@ -132,7 +133,7 @@ func TestGStreamer(t *testing.T) {
 		for _, tt := range tests {
 			t.Run(tt.desc, tt.run)
 		}
-		gtk.MainQuit()
+		glib.IdleAdd(gtk.MainQuit)
 	}()
 
 	gtk.Main()

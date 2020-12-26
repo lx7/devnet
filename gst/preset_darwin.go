@@ -7,10 +7,10 @@ import (
 )
 
 var screen_H264_SW = Preset{
-	CodecKind:  VIDEO,
-	CodecName:  H264,
-	Accel:      AccelTypeNone,
-	SourceType: SourceTypeScreen,
+	Kind:   Video,
+	Codec:  H264,
+	Accel:  Software,
+	Source: Screen,
 	Local: `
 			avfvideosrc capture-screen=true 
 			! video/x-raw,framerate=25/1
@@ -38,10 +38,10 @@ var screen_H264_SW = Preset{
 }
 
 var screen_H264_OSXVT = Preset{
-	CodecKind:  VIDEO,
-	CodecName:  H264,
-	Accel:      AccelTypeOSXVT,
-	SourceType: SourceTypeScreen,
+	Kind:   Video,
+	Codec:  H264,
+	Accel:  OSXVT,
+	Source: Screen,
 	Local: `
 			avfvideosrc capture-screen=true 
 			! video/x-raw,framerate=25/1
@@ -66,10 +66,10 @@ var screen_H264_OSXVT = Preset{
 }
 
 var voice_OPUS_SW = Preset{
-	CodecKind:  AUDIO,
-	CodecName:  Opus,
-	Accel:      AccelTypeNone,
-	SourceType: SourceTypeVoice,
+	Kind:       Audio,
+	Codec:      Opus,
+	Accel:      Software,
+	SourceType: Voice,
 	Local: `
 			autoaudiosrc
 			! opusenc
