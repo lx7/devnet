@@ -118,9 +118,9 @@ type pipeRegister struct {
 	last int
 }
 
-var pipes = pipeRegister{m: make(map[int]*Pipeline)}
+var pipes = &pipeRegister{m: make(map[int]*Pipeline)}
 
-func (r pipeRegister) register(p *Pipeline) int {
+func (r *pipeRegister) register(p *Pipeline) int {
 	r.Lock()
 	defer r.Unlock()
 	r.last++
@@ -131,13 +131,13 @@ func (r pipeRegister) register(p *Pipeline) int {
 	return r.last
 }
 
-func (r pipeRegister) lookup(i int) *Pipeline {
+func (r *pipeRegister) lookup(i int) *Pipeline {
 	r.Lock()
 	defer r.Unlock()
 	return r.m[i]
 }
 
-func (r pipeRegister) unregister(i int) {
+func (r *pipeRegister) unregister(i int) {
 	r.Lock()
 	defer r.Unlock()
 	delete(r.m, i)

@@ -162,6 +162,11 @@ func (s *Session) Run() {
 			case proto.SDP_OFFER:
 				s.Peer = frame.Src
 				err := s.conn.SetRemoteDescription(p.SessionDescription())
+				if err != nil {
+					log.Error("set remote description: ", err)
+					continue
+				}
+
 				answer, err := s.conn.CreateAnswer(nil)
 				if err != nil {
 					log.Error("create answer: ", err)

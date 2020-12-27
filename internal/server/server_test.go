@@ -7,11 +7,11 @@ import (
 
 	"github.com/lx7/devnet/proto"
 
-	pb "github.com/golang/protobuf/proto"
 	"github.com/gorilla/websocket"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/require"
+	pb "google.golang.org/protobuf/proto"
 )
 
 var conf *viper.Viper
@@ -55,7 +55,7 @@ func TestServer_Echo(t *testing.T) {
 			giveType: websocket.BinaryMessage,
 			want: &proto.Frame{
 				Dst: "testuser",
-				Payload: &proto.Frame_Config{&proto.Config{
+				Payload: &proto.Frame_Config{Config: &proto.Config{
 					Webrtc: &proto.Config_WebRTC{
 						Iceservers: []*proto.Config_WebRTC_ICEServer{
 							&proto.Config_WebRTC_ICEServer{

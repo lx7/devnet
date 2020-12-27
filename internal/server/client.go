@@ -46,7 +46,7 @@ func (c *DefaultClient) Configure(conf *viper.Viper) error {
 
 	frame := &proto.Frame{
 		Dst:     c.name,
-		Payload: &proto.Frame_Config{cc},
+		Payload: &proto.Frame_Config{Config: cc},
 	}
 	c.Send() <- frame
 

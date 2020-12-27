@@ -25,7 +25,7 @@ func TestSignal_Echo(t *testing.T) {
 	give := &proto.Frame{
 		Src: "user 1",
 		Dst: "user 2",
-		Payload: &proto.Frame_Sdp{&proto.SDP{
+		Payload: &proto.Frame_Sdp{Sdp: &proto.SDP{
 			Type: proto.SDP_OFFER,
 			Desc: "sdp",
 		}},

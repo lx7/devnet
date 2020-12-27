@@ -49,8 +49,6 @@ func (s *Session) Handle(f interface{}, args ...interface{}) error {
 	return nil
 }
 
-func handlerFunc(...interface{}) {}
-
 type handler struct {
 	f    reflect.Value
 	args []reflect.Value

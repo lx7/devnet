@@ -1,7 +1,7 @@
 package proto
 
 import (
-	pb "github.com/golang/protobuf/proto"
+	pb "google.golang.org/protobuf/proto"
 )
 
 func (f *Frame) Marshal() ([]byte, error) {

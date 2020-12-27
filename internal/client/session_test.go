@@ -44,7 +44,7 @@ func TestSession_Flow(t *testing.T) {
 		// configure
 		conf := &proto.Frame{
 			Dst: "user1",
-			Payload: &proto.Frame_Config{&proto.Config{
+			Payload: &proto.Frame_Config{Config: &proto.Config{
 				Webrtc: &proto.Config_WebRTC{
 					Iceservers: []*proto.Config_WebRTC_ICEServer{
 						&proto.Config_WebRTC_ICEServer{

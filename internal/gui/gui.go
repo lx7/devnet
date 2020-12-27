@@ -56,10 +56,10 @@ func (g *GUI) Run() int {
 			case <-g.ready:
 				g.session.SetOverlay(client.RemoteScreen, g.videoWindow.overlay)
 			case <-done:
-				break
+				log.Infof("gui client event loop done")
+				return
 			}
 		}
-		log.Infof("gui client event loop done")
 	}()
 
 	return g.app.Run(nil)

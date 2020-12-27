@@ -3,13 +3,11 @@ package gui
 import (
 	"github.com/gotk3/gotk3/gdk"
 	"github.com/gotk3/gotk3/gtk"
-	"github.com/lx7/devnet/gst"
 )
 
 type videoWindow struct {
 	*gtk.Window
 	overlay *gtk.DrawingArea
-	source  *gst.Pipeline
 }
 
 func (w *videoWindow) Populate(b *gtk.Builder) error {

@@ -74,10 +74,7 @@ type fakeClient struct {
 
 func (c *fakeClient) Attach(Switch) {
 	go func() {
-		select {
-		case m := <-c.send:
-			c.lastmsg = m
-		}
+		c.lastmsg = <-c.send
 	}()
 }
 

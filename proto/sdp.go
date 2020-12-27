@@ -39,6 +39,6 @@ func (f *Frame_Sdp) SessionDescription() webrtc.SessionDescription {
 	}
 }
 
-func (s *Frame_Sdp) IsType(t SDP_Type) bool {
-	return s.Sdp.Type == t
+func (f *Frame_Sdp) IsType(t SDP_Type) bool {
+	return f.Sdp.Type == t
 }

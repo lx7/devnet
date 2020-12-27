@@ -56,7 +56,6 @@ func TestGUI_Session(t *testing.T) {
 
 	go func() {
 		wg.Wait()
-		const interval = 1000 * time.Millisecond
 		glib.IdleAdd(gui.Quit)
 	}()
 

@@ -7,12 +7,12 @@ import (
 	"testing"
 	"time"
 
-	pb "github.com/golang/protobuf/proto"
 	"github.com/gorilla/websocket"
 	"github.com/lx7/devnet/internal/testutil"
 	"github.com/lx7/devnet/proto"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	pb "google.golang.org/protobuf/proto"
 )
 
 func TestClient_Echo(t *testing.T) {
