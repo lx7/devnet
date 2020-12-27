@@ -7,14 +7,28 @@ import (
 	"strings"
 	"testing"
 
-	conf "github.com/spf13/viper"
+	log "github.com/sirupsen/logrus"
+	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
+func init() {
+	log.SetLevel(log.ErrorLevel)
+
+	conf := viper.New()
+	conf.SetConfigFile("../../configs/server.yaml")
+	if err := conf.ReadInConfig(); err != nil {
+		log.Fatal("failed reading config file: ", err)
+	}
+
+	err := Configure(conf.Sub("auth"))
+	if err != nil {
+		log.Fatal("configure: ", err)
+	}
+}
+
 func TestBasicAuthHandler(t *testing.T) {
-	conf.Set("users.testuser",
-		"09d9623a149a4a0c043befcb448c9c3324be973230188ba412c008a2929f31d0")
 
 	okResponder := func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprint(w, "OK")
@@ -97,9 +111,6 @@ func TestBasicAuthHeader(t *testing.T) {
 }
 
 func TestUserPass(t *testing.T) {
-	conf.Set("users.testuser",
-		"09d9623a149a4a0c043befcb448c9c3324be973230188ba412c008a2929f31d0")
-
 	auth := UserPass("testuser", "wrong password")
 	assert.Equal(t, auth, false, "wrong password should not match")
 

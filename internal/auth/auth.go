@@ -7,25 +7,46 @@ import (
 	"net/http"
 
 	log "github.com/sirupsen/logrus"
-	conf "github.com/spf13/viper"
+	"github.com/spf13/viper"
 )
 
-func init() {
-	log.SetLevel(log.ErrorLevel)
+type User struct {
+	Name string
+	Hash string
+}
+
+// TODO: use external auth provider
+var userMap map[string]User
+
+// Configure sets up the auth module based on conf.
+func Configure(conf *viper.Viper) error {
+	userMap = make(map[string]User)
+
+	var userList []User
+	if err := conf.UnmarshalKey("users", &userList); err != nil {
+		return fmt.Errorf("unmarshal user list: %v", err)
+	}
+	for _, u := range userList {
+		userMap[u.Name] = u
+	}
+	return nil
 }
 
 // UserPass implements basic username / password verification.
 func UserPass(user string, pass string) bool {
 	sum := sha256.Sum256([]byte(fmt.Sprintf("%s+%s", user, pass)))
 	str := fmt.Sprintf("%x", sum)
-	truth := conf.GetString(fmt.Sprintf("users.%s", user))
-	if str == truth {
-		log.Trace("authenticated user: ", user)
-		return true
-	} else {
+	u, ok := userMap[user]
+	if !ok {
 		log.Warn("authentication failure: ", user)
 		return false
 	}
+	if str != u.Hash {
+		log.Warn("authentication failure: ", user)
+		return false
+	}
+	log.Trace("authenticated user: ", user)
+	return true
 }
 
 // BasicAuth provides an authentication wrapper for http.HandlerFunc.
