@@ -1,0 +1,21 @@
+signaling:
+  addr: ":8080"
+  wspath: "/channel"
+  tls: false
+auth:
+  users:
+    - name: user1
+      hash: bef8ef72b9935ed7709f700f6a78a84a217b5714238316136156e28333251552
+    - name: user2
+      hash: b0ab375e154e9be1e83ad21dea7140b1e109d1be49c9e426363654c0da22512a
+    - name: testuser
+      hash: 09d9623a149a4a0c043befcb448c9c3324be973230188ba412c008a2929f31d0
+channels:
+  - name: Lobby
+    desc: This is the lobby.
+    hash: bef8ef72b9935ed7709f700f6a78a84a217b5714238316136156e28333251552
+    default: true
+client:
+  webrtc:
+    iceservers:
+      - url: stun:stun.l.google.com:19302

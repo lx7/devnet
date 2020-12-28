@@ -1,0 +1,11 @@
+signaling:
+  url: ws://signald:8080/channel
+auth:
+  user: user1
+  pass: test                             
+video:
+  hardware: none
+log:
+  level: info
+
+
