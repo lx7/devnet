@@ -31,7 +31,7 @@ WORKDIR /go/src/devnet
 RUN go get github.com/mjibson/esc; \
     go get github.com/gotk3/gotk3/gtk 
 
-COPY scripts/xsession /root/.xsession
+COPY scripts/docker/xsession /root/.xsession
 
 COPY go.mod go.sum ./
 RUN go mod download

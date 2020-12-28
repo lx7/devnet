@@ -1,0 +1,9 @@
+LICENSE
+README*
+TODO
+_tmp/
+.git/
+docker/
+docker-compose.yaml
+
+
