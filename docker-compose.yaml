@@ -1,0 +1,33 @@
+version: "3.7"
+
+services:
+
+  signald:
+    hostname: signald
+    image: devnet/signald:latest
+    build:
+      dockerfile: ./docker/signald.Dockerfile
+      context: .
+      network: host
+    volumes:
+      - "./configs/docker/signald.yaml:/etc/devnet/signald.yaml"
+    ports:
+      - "8080:8080"
+    expose:
+      - "8080"
+
+  client:
+    hostname: client
+    image: devnet/client:latest
+    build:
+      dockerfile: ./docker/client.Dockerfile
+      context: .
+      network: host
+    volumes:
+      - "./configs/docker/client.yaml:/root/.config/devnet/config.yaml"
+    ports:
+      - "5901:5901"
+      - "3389:3389"
+    depends_on:
+      - signald
+
