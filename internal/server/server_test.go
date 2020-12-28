@@ -18,7 +18,7 @@ var conf *viper.Viper
 
 func init() {
 	conf = viper.New()
-	conf.SetConfigFile("../../configs/server.yaml")
+	conf.SetConfigFile("../../configs/signald.yaml")
 	if err := conf.ReadInConfig(); err != nil {
 		log.Fatal("failed reading config file: ", err)
 	}
