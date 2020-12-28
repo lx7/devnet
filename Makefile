@@ -11,9 +11,6 @@ arch = $(word 2, $(temp))
 
 all: release
 
-run: 
-	go run . -c ../../configs/server.yaml
-
 generate:
 	go generate ./...
 	protoc --go_out . --go_opt=paths=source_relative proto/*.proto
@@ -37,11 +34,12 @@ cover:
 	go tool cover -html=coverage.out -o coverage.html
 	$(BROWSERCMD) coverage.html
 
-
 clean:
 	rm -rf ${DISTDIR}
 	find -H . -type f -name "coverage.out" -delete
 	find -H . -type f -name "coverage.html" -delete
+	find -H . -type f -name "*.pb.go" -delete
+	find -H . -type f -name "*.gen.go" -delete
 	go mod tidy
 
 deps:
