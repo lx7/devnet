@@ -22,7 +22,7 @@ func init() {
 	os.Setenv("GST_DEBUG", "*:2")
 }
 
-func TestGStreamer(t *testing.T) {
+func TestGStreamer_Processing(t *testing.T) {
 	hook := testutil.NewLogHook()
 	gtk.Init(nil)
 
@@ -141,5 +141,48 @@ func TestGStreamer(t *testing.T) {
 	errorlog := hook.Entry(log.ErrorLevel)
 	if errorlog != nil {
 		t.Errorf("runtime error: '%v'", errorlog.Message)
+	}
+}
+
+func TestGStreamer_NewHWCodec(t *testing.T) {
+	gtk.Init(nil)
+
+	// define cases
+	tests := []struct {
+		give string
+		want hwCodec
+	}{
+		{
+			give: "",
+			want: NoHardware,
+		},
+		{
+			give: "vaapi",
+			want: VAAPI,
+		},
+		{
+			give: "nvcodec",
+			want: NVCODEC,
+		},
+		{
+			give: "vdpau",
+			want: VDPAU,
+		},
+		{
+			give: "osxvt",
+			want: OSXVT,
+		},
+		{
+			give: "OSXvt",
+			want: OSXVT,
+		},
+	}
+
+	// run tests
+	for _, tt := range tests {
+		t.Run(tt.give, func(t *testing.T) {
+			have := NewHardwareCodec(tt.give)
+			assert.Equal(t, tt.want, have)
+		})
 	}
 }

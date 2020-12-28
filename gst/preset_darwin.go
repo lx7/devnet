@@ -9,7 +9,7 @@ import (
 var screen_H264_SW = Preset{
 	Kind:   Video,
 	Codec:  H264,
-	Accel:  Software,
+	HW:     NoHardware,
 	Source: Screen,
 	Local: `
 			avfvideosrc capture-screen=true 
@@ -40,7 +40,7 @@ var screen_H264_SW = Preset{
 var screen_H264_OSXVT = Preset{
 	Kind:   Video,
 	Codec:  H264,
-	Accel:  OSXVT,
+	HW:     OSXVT,
 	Source: Screen,
 	Local: `
 			avfvideosrc capture-screen=true 
@@ -68,7 +68,7 @@ var screen_H264_OSXVT = Preset{
 var voice_OPUS_SW = Preset{
 	Kind:       Audio,
 	Codec:      Opus,
-	Accel:      Software,
+	HW:         NoHardware,
 	SourceType: Voice,
 	Local: `
 			autoaudiosrc

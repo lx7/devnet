@@ -40,14 +40,9 @@ func TestClientCmd_Config(t *testing.T) {
 			want: "ws://localhost:8080/channel",
 		},
 		{
-			desc: "get video encoder from config",
-			give: "video.encode",
-			want: "software",
-		},
-		{
-			desc: "get video decoder from config",
-			give: "video.decode",
-			want: "auto",
+			desc: "get hardware encoder from config",
+			give: "video.hardware",
+			want: "none",
 		},
 	}
 
@@ -71,7 +66,7 @@ func TestClientCmd_Run(t *testing.T) {
 
 	// create test server
 	sconf := conf.New()
-	sconf.SetConfigFile("../../configs/server.yaml")
+	sconf.SetConfigFile("../../configs/signald.yaml")
 	if err := sconf.ReadInConfig(); err != nil {
 		log.Fatal("failed reading server config: ", err)
 	}

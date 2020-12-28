@@ -12,6 +12,7 @@ import (
 	"github.com/pion/rtcp"
 	"github.com/pion/webrtc/v2"
 	log "github.com/sirupsen/logrus"
+	conf "github.com/spf13/viper"
 )
 
 const (
@@ -63,24 +64,32 @@ func NewSession(self string, signal SignalSendReceiver) (*Session, error) {
 		h:      make(map[reflect.Type]handler),
 	}
 
-	voicePreset, err := gst.GetPreset(gst.Voice, gst.Opus, gst.Software)
+	voicePreset, err := gst.GetPreset(
+		gst.Voice,
+		gst.Opus,
+		gst.NewHardwareCodec(""),
+	)
 	if err != nil {
 		return nil, err
 	}
-	screenPreset, err := gst.GetPreset(gst.Screen, gst.H264, gst.VAAPI)
+	screenPreset, err := gst.GetPreset(
+		gst.Screen,
+		gst.H264,
+		gst.NewHardwareCodec(conf.GetString("video.hardware")),
+	)
 	if err != nil {
 		return nil, err
 	}
 
 	s.ls[LocalVoice], err = NewLocalStream(s.conn, &LocalStreamOpts{
-		ID:     "devnet-voice",
+		Label:  "devnet-voice",
 		Preset: voicePreset,
 	})
 	if err != nil {
 		return nil, err
 	}
 	s.ls[LocalScreen], err = NewLocalStream(s.conn, &LocalStreamOpts{
-		ID:     "devnet-screen",
+		Label:  "devnet-screen",
 		Preset: screenPreset,
 	})
 	if err != nil {
@@ -88,14 +97,14 @@ func NewSession(self string, signal SignalSendReceiver) (*Session, error) {
 	}
 
 	s.rs[RemoteVoice], err = NewRemoteStream(s.conn, RemoteStreamOpts{
-		ID:     "devnet-voice",
+		Label:  "devnet-voice",
 		Preset: voicePreset,
 	})
 	if err != nil {
 		return nil, err
 	}
 	s.rs[RemoteScreen], err = NewRemoteStream(s.conn, RemoteStreamOpts{
-		ID:     "devnet-screen",
+		Label:  "devnet-screen",
 		Preset: screenPreset,
 	})
 	if err != nil {
@@ -103,6 +112,7 @@ func NewSession(self string, signal SignalSendReceiver) (*Session, error) {
 	}
 
 	s.conn.OnICEConnectionStateChange(s.handleICEStateChange)
+	s.conn.OnSignalingStateChange(s.handleSignalingStateChange)
 	s.conn.OnTrack(s.handleTrack)
 
 	return &s, nil
@@ -210,7 +220,7 @@ func (s *Session) SetOverlay(id int, o *gtk.DrawingArea) {
 }
 
 func (s *Session) handleICEStateChange(cs webrtc.ICEConnectionState) {
-	log.Info("ICE connection state has changed: ", cs.String())
+	log.Info("ICE connection state: ", cs.String())
 	switch cs {
 	case webrtc.ICEConnectionStateConnected:
 		s.events <- EventSessionStart{}
@@ -223,7 +233,12 @@ func (s *Session) handleICEStateChange(cs webrtc.ICEConnectionState) {
 	s.events <- EventSessionEnd{}
 }
 
+func (s *Session) handleSignalingStateChange(st webrtc.SignalingState) {
+	log.Info("webrtc signaling state: ", st.String())
+}
+
 func (s *Session) handleTrack(track *webrtc.Track, receiver *webrtc.RTPReceiver) {
+	log.Infof("new track ID: %v Label: %v", track.ID(), track.Label())
 	// temporary workaround until pion webrtc implements incoming RTCP events
 	go func() {
 		ticker := time.NewTicker(time.Second * 3)
@@ -245,13 +260,16 @@ func (s *Session) handleTrack(track *webrtc.Track, receiver *webrtc.RTPReceiver)
 			return nil, fmt.Errorf("codec for new track: %v", err)
 		}
 	*/
-	switch kind := track.Kind(); kind {
-	case webrtc.RTPCodecTypeAudio:
+	switch track.Label() {
+	case "devnet-voice":
+		log.Trace("remote voice track, starting receive ")
 		s.rs[RemoteVoice].Receive(track)
-	case webrtc.RTPCodecTypeVideo:
+	case "devnet-screen":
+		log.Trace("remote screen track, starting receive ")
+		s.events <- EventSCInboundStart{}
 		s.rs[RemoteScreen].Receive(track)
 	default:
-		log.Errorf("track of unkown kind: %d", track.Kind())
+		log.Errorf("track label unknown: %s", track.Label())
 		return
 	}
 

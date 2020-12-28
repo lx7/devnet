@@ -14,19 +14,19 @@ import (
 )
 
 func TestPreset_GetPreset(t *testing.T) {
-	p, err := GetPreset(Screen, H264, Software)
+	p, err := GetPreset(Screen, H264, NoHardware)
 	require.NoError(t, err)
 	assert.Equal(t, H264, p.Codec)
 
-	p, err = GetPreset(Voice, Opus, Software)
+	p, err = GetPreset(Voice, Opus, NoHardware)
 	require.NoError(t, err)
 	assert.Equal(t, Opus, p.Codec)
 
-	p, err = GetPreset(Screen, H264, codecAccel(""))
+	p, err = GetPreset(Screen, H264, hwCodec("---"))
 	require.Error(t, err)
 	assert.Nil(t, p)
 
-	p, err = GetPreset(Screen, codecName(""), Software)
+	p, err = GetPreset(Screen, codecName(""), NoHardware)
 	require.Error(t, err)
 	assert.Nil(t, p)
 }

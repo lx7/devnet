@@ -10,6 +10,7 @@ import (
 	"github.com/lx7/devnet/internal/client"
 	"github.com/lx7/devnet/internal/gui"
 	log "github.com/sirupsen/logrus"
+	flag "github.com/spf13/pflag"
 	conf "github.com/spf13/viper"
 )
 
@@ -27,7 +28,12 @@ func init() {
 func configure(confpath string) {
 	conf.SetDefault("config", confpath)
 	conf.SetDefault("log.level", "info")
-	conf.BindEnv("config", "DEVNET_CONFIG")
+
+	flag.StringP("config", "c", confpath, "Path to config file")
+	flag.StringP("auth.user", "u", confpath, "Username")
+	flag.StringP("auth.pass", "p", confpath, "Password")
+	flag.Parse()
+	conf.BindPFlags(flag.CommandLine)
 
 	conf.SetConfigFile(conf.GetString("config"))
 	if err := conf.ReadInConfig(); err != nil {
@@ -52,7 +58,8 @@ func run() int {
 
 	signal, err := client.Dial(conf.GetString("signaling.URL"), header)
 	if err != nil {
-		log.Fatal("dial: ", err)
+		signal, _ = client.Dial(conf.GetString("signaling.URL"), header)
+		// log.Fatal("dial: ", err)
 	}
 
 	sChan := make(chan *client.Session, 1)

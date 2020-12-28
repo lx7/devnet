@@ -2,9 +2,12 @@ package gst
 
 import (
 	"fmt"
+	"strings"
 )
 
 type codecKind string
+
+// TODO: switch constants to int?
 
 const (
 	Audio codecKind = "audio"
@@ -18,14 +21,14 @@ const (
 	Opus codecName = "Opus"
 )
 
-type codecAccel string
+type hwCodec string
 
 const (
-	Software codecAccel = "Software"
-	VAAPI    codecAccel = "VAAPI"
-	NVCODEC  codecAccel = "NVCODEC"
-	VDPAU    codecAccel = "VDPAU"
-	OSXVT    codecAccel = "OSXVT"
+	NoHardware hwCodec = ""
+	VAAPI      hwCodec = "vaapi"
+	NVCODEC    hwCodec = "nvcodec"
+	VDPAU      hwCodec = "vdpau"
+	OSXVT      hwCodec = "osxvt"
 )
 
 type sourceType string
@@ -44,7 +47,7 @@ const (
 type Preset struct {
 	Kind        codecKind
 	Codec       codecName
-	Accel       codecAccel
+	HW          hwCodec
 	Source      sourceType
 	Local       string
 	Remote      string
@@ -52,17 +55,32 @@ type Preset struct {
 	PayloadType uint8
 }
 
-func (c *Preset) String() string {
-	return fmt.Sprintf("%s/%s (%s)", c.Codec, c.Accel, c.Source)
+func NewHardwareCodec(s string) hwCodec {
+	switch strings.ToLower(s) {
+	case string(VAAPI):
+		return VAAPI
+	case string(NVCODEC):
+		return NVCODEC
+	case string(VDPAU):
+		return VDPAU
+	case string(OSXVT):
+		return OSXVT
+	default:
+		return NoHardware
+	}
 }
 
-func GetPreset(s sourceType, c codecName, a codecAccel) (*Preset, error) {
+func (c *Preset) String() string {
+	return fmt.Sprintf("%s/%s (%s)", c.Codec, c.HW, c.Source)
+}
+
+func GetPreset(s sourceType, c codecName, h hwCodec) (*Preset, error) {
 	for _, p := range presets {
-		if p.Source == s && p.Codec == c && p.Accel == a {
+		if p.Source == s && p.Codec == c && p.HW == h {
 			return &p, nil
 		}
 	}
-	return nil, fmt.Errorf("preset %s/%s (%s) not found", c, a, s)
+	return nil, fmt.Errorf("preset %s/%s (%s) not found", c, h, s)
 }
 
 func PresetsBySource(s sourceType) []Preset {

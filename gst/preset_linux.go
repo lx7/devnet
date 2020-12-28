@@ -9,7 +9,7 @@ import (
 var screen_H264_SW = Preset{
 	Kind:   Video,
 	Codec:  H264,
-	Accel:  Software,
+	HW:     NoHardware,
 	Source: Screen,
 	Local: `
 			ximagesrc use-damage=false 
@@ -40,7 +40,7 @@ var screen_H264_SW = Preset{
 var screen_H264_VAAPI = Preset{
 	Kind:   Video,
 	Codec:  H264,
-	Accel:  VAAPI,
+	HW:     VAAPI,
 	Source: Screen,
 	Local: `
 			ximagesrc use-damage=false 
@@ -73,7 +73,7 @@ var screen_H264_VAAPI = Preset{
 var screen_H264_NVCODEC = Preset{
 	Kind:   Video,
 	Codec:  H264,
-	Accel:  NVCODEC,
+	HW:     NVCODEC,
 	Source: Screen,
 	Local: `
 			ximagesrc use-damage=false 
@@ -99,7 +99,7 @@ var screen_H264_NVCODEC = Preset{
 var voice_OPUS_SW = Preset{
 	Kind:   Audio,
 	Codec:  Opus,
-	Accel:  Software,
+	HW:     NoHardware,
 	Source: Voice,
 	Local: `
 			autoaudiosrc

@@ -13,7 +13,7 @@ import (
 )
 
 type LocalStreamOpts struct {
-	ID     string
+	Label  string
 	Preset *gst.Preset
 }
 
@@ -28,9 +28,10 @@ type LocalStream struct {
 }
 
 func NewLocalStream(c *webrtc.PeerConnection, so *LocalStreamOpts) (*LocalStream, error) {
-	name := fmt.Sprintf("%s-%s-out", so.Preset.Kind, so.Preset.Codec)
+	ssrc := rand.Uint32()
+	id := fmt.Sprintf("%s-%v", so.Preset.Kind, ssrc)
 
-	t, err := c.NewTrack(so.Preset.PayloadType, rand.Uint32(), name, so.ID)
+	t, err := c.NewTrack(so.Preset.PayloadType, rand.Uint32(), id, so.Label)
 	if err != nil {
 		return nil, fmt.Errorf("new local track: %v", err)
 	}
@@ -73,7 +74,7 @@ func (s *LocalStream) Close() {
 }
 
 type RemoteStreamOpts struct {
-	ID     string
+	Label  string
 	Preset *gst.Preset
 }
 

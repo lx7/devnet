@@ -11,24 +11,18 @@ auth:
   passcmd: 'pass devnet | head -n 1' 
 video:
   # 
-  # Set encoder to enable GPU hardware acceleration. 
+  # Set hardware codec to enable GPU acceleration for encoding / decoding.
   #
   # Possible values:
   # Linux:  
   #   - "vaapi" for Intel (Broadwell and newer)
   #   - "nvenc" for nVidia (Kepler and newer)
-  #   - "software" to disable hardware support
+  #   - "none"  to disable hardware support
   # OSX:  
   #   - "osxvt" for Intel, nVidia, AMD
-  #   - "software" to disable hardware support
+  #   - "none"  to disable hardware support
   #
-  encode: software
-  # 
-  # Set encoder to enable GPU hardware acceleration. In addition to the 
-  # platform specific values, decode also supports "auto" to let the 
-  # application figure out which decoder pipeline might work best.
-  #
-  decode: auto
+  hardware: none
 log:
   #
   # Set the log level. 
