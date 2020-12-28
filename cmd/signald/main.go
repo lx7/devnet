@@ -46,6 +46,6 @@ func run() {
 }
 
 func main() {
-	configure(fmt.Sprintf("/etc/%s/config.yaml", appName))
+	configure(fmt.Sprintf("/etc/%s/signald.yaml", appName))
 	run()
 }

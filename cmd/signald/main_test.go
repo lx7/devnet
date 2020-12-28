@@ -11,7 +11,7 @@ import (
 )
 
 func init() {
-	configure("../../configs/server.yaml")
+	configure("../../configs/signald.yaml")
 }
 
 func TestServerCmd_Config(t *testing.T) {
