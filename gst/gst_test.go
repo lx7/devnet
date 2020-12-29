@@ -11,19 +11,22 @@ import (
 	"github.com/gotk3/gotk3/glib"
 	"github.com/gotk3/gotk3/gtk"
 	"github.com/pion/webrtc/v2/pkg/media"
-	log "github.com/sirupsen/logrus"
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 func init() {
 	runtime.LockOSThread()
-	log.SetLevel(log.DebugLevel)
+	zerolog.SetGlobalLevel(zerolog.DebugLevel)
 	os.Setenv("GST_DEBUG", "*:2")
 }
 
 func TestGStreamer_Processing(t *testing.T) {
-	hook := testutil.NewLogHook()
+	hook := &testutil.LogHook{}
+	log.Logger = log.Hook(hook)
+
 	gtk.Init(nil)
 
 	win, err := gtk.WindowNew(gtk.WINDOW_TOPLEVEL)
@@ -138,9 +141,9 @@ func TestGStreamer_Processing(t *testing.T) {
 
 	gtk.Main()
 
-	errorlog := hook.Entry(log.ErrorLevel)
-	if errorlog != nil {
-		t.Errorf("runtime error: '%v'", errorlog.Message)
+	entry := hook.Entry(zerolog.ErrorLevel)
+	if entry != nil {
+		log.Fatal().Str("err", entry.Msg).Msg("runtime error")
 	}
 }
 

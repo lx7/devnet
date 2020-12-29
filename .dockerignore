@@ -5,6 +5,5 @@ _tmp/
 .git/
 docker/
 docker-compose.yaml
-scripts/
 
 

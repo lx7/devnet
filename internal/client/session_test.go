@@ -1,26 +1,40 @@
 package client
 
 import (
+	"fmt"
+	"os"
 	"runtime"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/gotk3/gotk3/gtk"
 	"github.com/lx7/devnet/internal/testutil"
 	"github.com/lx7/devnet/proto"
-	log "github.com/sirupsen/logrus"
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 func init() {
+	log.Logger = log.Output(zerolog.ConsoleWriter{
+		Out:        os.Stderr,
+		TimeFormat: time.RFC3339,
+		FormatFieldValue: func(i interface{}) string {
+			s := fmt.Sprintf("%s", i)
+			s = strings.Replace(s, `\n`, "\n", -1)
+			s = strings.Replace(s, `\t`, "\t", -1)
+			return s
+		},
+	})
+
 	runtime.LockOSThread()
-	//os.Setenv("GST_DEBUG", "*:2")
-	//log.SetLevel(log.DebugLevel)
 }
 
 func TestSession_Flow(t *testing.T) {
-	hook := testutil.NewLogHook()
+	hook := &testutil.LogHook{}
+	log.Logger = log.Hook(hook)
 	gtk.Init(nil)
 
 	go func() {
@@ -77,9 +91,9 @@ func TestSession_Flow(t *testing.T) {
 
 	gtk.Main()
 
-	errorlog := hook.Entry(log.ErrorLevel)
-	if errorlog != nil {
-		t.Errorf("runtime error: '%v'", errorlog.Message)
+	entry := hook.Entry(zerolog.ErrorLevel)
+	if entry != nil {
+		log.Fatal().Str("err", entry.Msg).Msg("runtime error")
 	}
 }
 

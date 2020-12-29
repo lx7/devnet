@@ -1,6 +1,7 @@
 package gst
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -8,7 +9,8 @@ import (
 	"github.com/gotk3/gotk3/gtk"
 	"github.com/lx7/devnet/internal/testutil"
 	"github.com/pion/webrtc/v2/pkg/media"
-	log "github.com/sirupsen/logrus"
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -32,7 +34,8 @@ func TestPreset_GetPreset(t *testing.T) {
 }
 
 func TestPreset_Permutations(t *testing.T) {
-	hook := testutil.NewLogHook()
+	hook := &testutil.LogHook{}
+	log.Logger = log.Hook(hook)
 	gtk.Init(nil)
 
 	type perm struct{ p1, p2 Preset }
@@ -71,7 +74,7 @@ func TestPreset_Permutations(t *testing.T) {
 			remote, err := NewPipeline(p.p2.Remote, p.p2.Clock)
 			require.NoError(t, err)
 
-			log.Infof("%s -> %s", p.p1.String(), p.p2.String())
+			fmt.Printf("... test stream: %s -> %s\n", p.p1.String(), p.p2.String())
 
 			local.HandleSample(func(s media.Sample) {
 				remote.Push(s.Data)
@@ -93,8 +96,8 @@ func TestPreset_Permutations(t *testing.T) {
 
 	gtk.Main()
 
-	errorlog := hook.Entry(log.ErrorLevel)
-	if errorlog != nil {
-		t.Errorf("runtime error: '%v'", errorlog.Message)
+	entry := hook.Entry(zerolog.ErrorLevel)
+	if entry != nil {
+		log.Fatal().Str("err", entry.Msg).Msg("runtime error")
 	}
 }

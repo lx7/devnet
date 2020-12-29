@@ -8,7 +8,7 @@ import (
 	"github.com/lx7/devnet/proto"
 
 	"github.com/gorilla/websocket"
-	log "github.com/sirupsen/logrus"
+	"github.com/rs/zerolog/log"
 )
 
 type SignalSendReceiver interface {
@@ -40,7 +40,7 @@ const (
 )
 
 func Dial(url string, h http.Header) (*Signal, error) {
-	log.Info("signaling: dial ", url)
+	log.Info().Str("url", url).Msg("signaling: dial")
 	dialer := &websocket.Dialer{
 		Proxy:            http.ProxyFromEnvironment,
 		HandshakeTimeout: handshakeTimeout,
@@ -51,7 +51,7 @@ func Dial(url string, h http.Header) (*Signal, error) {
 	if err != nil {
 		return nil, err
 	}
-	log.Info("signaling: channel connected")
+	log.Info().Str("url", url).Msg("signaling: connected")
 
 	s := &Signal{
 		conn: c,
@@ -66,7 +66,7 @@ func Dial(url string, h http.Header) (*Signal, error) {
 func (s *Signal) Send(f *proto.Frame) error {
 	data, err := f.Marshal()
 	if err != nil {
-		log.Warn("signaling: write: ", err)
+		log.Warn().Err(err).Msg("signaling: write")
 	}
 
 	err = s.conn.WriteMessage(websocket.TextMessage, data)
@@ -104,17 +104,17 @@ func (s *Signal) readPump() {
 		_, data, err := s.conn.ReadMessage()
 		if err != nil {
 			if !websocket.IsCloseError(err, websocket.CloseNormalClosure) {
-				log.Error("signaling: read message: ", err)
+				log.Error().Err(err).Msg("signaling: read message")
 			}
 			break
 		}
 
 		f := &proto.Frame{}
 		if err := f.Unmarshal(data); err != nil {
-			log.Error("signaling: unmarshal: ", err)
+			log.Error().Err(err).Msg("signaling: unmarshal")
 			continue
 		}
 		s.recv <- f
 	}
-	log.Info("signaling: done")
+	log.Info().Msg("signaling: done")
 }

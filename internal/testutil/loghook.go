@@ -3,52 +3,48 @@ package testutil
 import (
 	"sync"
 
-	log "github.com/sirupsen/logrus"
+	"github.com/rs/zerolog"
 )
 
-// LogHook implements the logrus hook interface to provide data on logged
+// LogEntry represents an entry in the log history
+type LogEntry struct {
+	Level zerolog.Level
+	Msg   string
+}
+
+// LogHook implements the zerolog hook interface to provides data on logged
 // errors for testing.
 type LogHook struct {
 	sync.RWMutex
-	Entries []log.Entry
+	Entries []LogEntry
 }
 
-// NewLogHook creates a new LogHook instance and adds it to the global logger.
-func NewLogHook() *LogHook {
-	h := new(LogHook)
-	log.AddHook(h)
-	return h
-}
-
-// Entry checks all recorded log entries for severity. Returns the
-// corrensponding entry if level <= maxlevel.
-func (h *LogHook) Entry(maxlevel log.Level) *log.Entry {
+// Entry checks the recorded log entries for severity. Returns the
+// last corrensponding entry if level >= minlevel.
+func (h *LogHook) Entry(minlevel zerolog.Level) *LogEntry {
 	h.RLock()
 	defer h.RUnlock()
 	for _, e := range h.Entries {
-		if e.Level <= maxlevel {
+		if e.Level >= minlevel {
 			return &e
 		}
 	}
 	return nil
 }
 
-// Fire implements the logrus Hook interface
-func (h *LogHook) Fire(e *log.Entry) error {
+// Run implements the zerolog.Hook interface
+func (h *LogHook) Run(e *zerolog.Event, l zerolog.Level, msg string) {
 	h.Lock()
 	defer h.Unlock()
-	h.Entries = append(h.Entries, *e)
-	return nil
-}
-
-// Levels implements the logrus Hook interface
-func (h *LogHook) Levels() []log.Level {
-	return log.AllLevels
+	h.Entries = append(h.Entries, LogEntry{
+		Level: l,
+		Msg:   msg,
+	})
 }
 
 // Reset clears the history of log entries in this LogHook instance.
 func (h *LogHook) Reset() {
 	h.Lock()
 	defer h.Unlock()
-	h.Entries = make([]log.Entry, 0)
+	h.Entries = make([]LogEntry, 0)
 }

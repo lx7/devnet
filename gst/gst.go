@@ -13,7 +13,7 @@ import (
 
 	"github.com/gotk3/gotk3/gtk"
 	"github.com/pion/webrtc/v2/pkg/media"
-	log "github.com/sirupsen/logrus"
+	"github.com/rs/zerolog/log"
 )
 
 type SampleHandlerFunc func(media.Sample)
@@ -81,7 +81,9 @@ func (p *Pipeline) Destroy() {
 func go_sample_cb(ref C.int, buf unsafe.Pointer, bufl C.int, dur C.int) {
 	p := pipes.lookup(int(ref))
 	if p == nil {
-		log.Errorf("no pipeline with id %v, discarding buffer", int(ref))
+		log.Error().
+			Int("pipeline", int(ref)).
+			Msg("no pipeline with id, discarding buffer")
 		return
 	}
 
@@ -94,22 +96,34 @@ func go_sample_cb(ref C.int, buf unsafe.Pointer, bufl C.int, dur C.int) {
 
 //export go_error_cb
 func go_error_cb(ref C.int, msg *C.char) {
-	log.Errorf("gst pipeline %v: %v", int(ref), C.GoString(msg))
+	log.Error().
+		Int("pipeline", int(ref)).
+		Str("err", C.GoString(msg)).
+		Msg("gst pipeline")
 }
 
 //export go_warning_cb
 func go_warning_cb(ref C.int, msg *C.char) {
-	log.Warningf("gst pipeline %v: %v", int(ref), C.GoString(msg))
+	log.Warn().
+		Int("pipeline", int(ref)).
+		Str("msg", C.GoString(msg)).
+		Msg("gst pipeline")
 }
 
 //export go_info_cb
 func go_info_cb(ref C.int, msg *C.char) {
-	log.Infof("gst pipeline %v: %v", int(ref), C.GoString(msg))
+	log.Info().
+		Int("pipeline", int(ref)).
+		Str("msg", C.GoString(msg)).
+		Msg("gst pipeline")
 }
 
 //export go_debug_cb
 func go_debug_cb(ref C.int, msg *C.char) {
-	log.Debugf("gst pipeline %v: %v", int(ref), C.GoString(msg))
+	log.Debug().
+		Int("pipeline", int(ref)).
+		Str("msg", C.GoString(msg)).
+		Msg("gst pipeline")
 }
 
 type pipeRegister struct {

@@ -8,13 +8,13 @@ import (
 	"github.com/lx7/devnet/internal/testutil"
 	"github.com/stretchr/testify/assert"
 
-	log "github.com/sirupsen/logrus"
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 	conf "github.com/spf13/viper"
 )
 
 func init() {
 	configure("../../configs/client.yaml")
-
 }
 
 func TestClientCmd_Config(t *testing.T) {
@@ -56,7 +56,8 @@ func TestClientCmd_Config(t *testing.T) {
 }
 
 func TestClientCmd_Run(t *testing.T) {
-	hook := testutil.NewLogHook()
+	hook := &testutil.LogHook{}
+	log.Logger = log.Hook(hook)
 
 	conf.Set("users.testuser",
 		"09d9623a149a4a0c043befcb448c9c3324be973230188ba412c008a2929f31d0")
@@ -68,7 +69,7 @@ func TestClientCmd_Run(t *testing.T) {
 	sconf := conf.New()
 	sconf.SetConfigFile("../../configs/signald.yaml")
 	if err := sconf.ReadInConfig(); err != nil {
-		log.Fatal("failed reading server config: ", err)
+		log.Fatal().Err(err).Msg("failed to read server config")
 	}
 	sconf.Set("signaling.addr", "127.0.0.1:40101")
 	s := server.New(sconf)
@@ -77,7 +78,6 @@ func TestClientCmd_Run(t *testing.T) {
 
 	go func() {
 		time.Sleep(1 * time.Second)
-
 		quit()
 	}()
 
@@ -85,8 +85,8 @@ func TestClientCmd_Run(t *testing.T) {
 	exitcode := run()
 	assert.Equal(t, 0, exitcode, "run should exit with code 0")
 
-	errorlog := hook.Entry(log.ErrorLevel)
-	if errorlog != nil {
-		t.Errorf("runtime error: '%v'", errorlog.Message)
+	entry := hook.Entry(zerolog.ErrorLevel)
+	if entry != nil {
+		log.Fatal().Str("err", entry.Msg).Msg("runtime error")
 	}
 }

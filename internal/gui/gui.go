@@ -8,8 +8,13 @@ import (
 	"github.com/gotk3/gotk3/glib"
 	"github.com/gotk3/gotk3/gtk"
 	"github.com/lx7/devnet/internal/client"
-	log "github.com/sirupsen/logrus"
+	"github.com/rs/zerolog/log"
 )
+
+func init() {
+	//TODO: lock here or in main?
+	//runtime.LockOSThread()
+}
 
 const (
 	layoutPath = "/static/main.ui"
@@ -48,6 +53,7 @@ func (g *GUI) Run() int {
 	done := make(chan struct{})
 	defer close(done)
 
+	// run network and video in a separate thread
 	go func() {
 		for {
 			select {
@@ -56,7 +62,7 @@ func (g *GUI) Run() int {
 			case <-g.ready:
 				g.session.SetOverlay(client.RemoteScreen, g.videoWindow.overlay)
 			case <-done:
-				log.Infof("gui client event loop done")
+				log.Info().Msg("gui client event loop done")
 				return
 			}
 		}
@@ -83,27 +89,27 @@ func (g *GUI) onEvent(e client.Event) {
 }
 
 func (g *GUI) onStartup() {
-	log.Info("application startup")
+	log.Info().Msg("application startup")
 
-	ui, err := FSString(true, layoutPath)
+	ui, err := FSString(false, layoutPath)
 	if err != nil {
-		log.Fatal("failed to load layout: ", err)
+		log.Fatal().Err(err).Msg("failed to load layout")
 	}
 
 	builder, err := gtk.BuilderNewFromString(ui)
 	if err != nil {
-		log.Fatal("failed to read layout: ", err)
+		log.Fatal().Err(err).Msg("failed to read layout")
 	}
 
-	css, err := FSString(true, stylePath)
+	css, err := FSString(false, stylePath)
 	if err != nil {
-		log.Fatal("failed to load styles: ", err)
+		log.Fatal().Err(err).Msg("failed to load styles")
 	}
 
 	cssProvider, _ := gtk.CssProviderNew()
 	err = cssProvider.LoadFromData(css)
 	if err != nil {
-		log.Fatal("failed to read styles: ", err)
+		log.Fatal().Err(err).Msg("failed to read styles")
 	}
 
 	screen, _ := gdk.ScreenGetDefault()
@@ -121,19 +127,19 @@ func (g *GUI) onStartup() {
 	builder.ConnectSignals(signals)
 
 	if err := g.mainWindow.Populate(builder); err != nil {
-		log.Fatal(err)
+		log.Fatal().Err(err).Msg("populate main window")
 	}
 	g.app.AddWindow(g.mainWindow)
 
 	if err := g.videoWindow.Populate(builder); err != nil {
-		log.Fatal(err)
+		log.Fatal().Err(err).Msg("populate video window")
 	}
 	g.app.AddWindow(g.videoWindow)
 
 }
 
 func (g *GUI) onActivate() {
-	log.Info("application activated")
+	log.Info().Msg("application activated")
 	g.mainWindow.Show()
 	g.videoWindow.Show()
 	g.videoWindow.Hide()
@@ -141,7 +147,7 @@ func (g *GUI) onActivate() {
 }
 
 func (g *GUI) onShutdown() {
-	log.Info("application shutdown")
+	log.Info().Msg("application shutdown")
 }
 
 func (g *GUI) onDestroy() {
@@ -169,6 +175,6 @@ func (g *GUI) onShareButtonToggle(b *gtk.ToggleButton) {
 func execOnMain(f interface{}, args ...interface{}) {
 	_, err := glib.IdleAdd(f, args)
 	if err != nil {
-		log.Errorf("failed to run func on main: %v with args: %v", f, args)
+		log.Error().Interface("func", f).Msg("failed to run func on main")
 	}
 }

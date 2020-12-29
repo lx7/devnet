@@ -1,6 +1,7 @@
 package gui
 
 import (
+	"os"
 	"runtime"
 	"sync"
 	"testing"
@@ -11,11 +12,18 @@ import (
 	"github.com/lx7/devnet/gst"
 	"github.com/lx7/devnet/internal/client"
 	"github.com/pion/webrtc/v2"
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
 
 func init() {
+	log.Logger = log.Output(zerolog.ConsoleWriter{
+		Out:        os.Stderr,
+		TimeFormat: time.RFC3339,
+	})
+
 	runtime.LockOSThread()
 }
 

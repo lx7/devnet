@@ -11,7 +11,7 @@ import (
 	"github.com/lx7/devnet/proto"
 	"github.com/pion/rtcp"
 	"github.com/pion/webrtc/v2"
-	log "github.com/sirupsen/logrus"
+	"github.com/rs/zerolog/log"
 	conf "github.com/spf13/viper"
 )
 
@@ -146,25 +146,27 @@ func (s *Session) Connect(peer string) error {
 
 func (s *Session) Run() {
 	for frame := range s.signal.Receive() {
+		log.Trace().
+			Str("src", frame.Src).
+			Str("dst", frame.Dst).
+			Stringer("type", reflect.TypeOf(frame.Payload)).
+			Msg("sinaling frame received")
+
 		switch p := frame.Payload.(type) {
 		case *proto.Frame_Config:
-			log.Tracef("config message received: %v", p)
-
 			err := s.conn.SetConfiguration(webrtc.Configuration{
 				ICEServers: []webrtc.ICEServer{{
 					URLs: []string{p.Config.Webrtc.Iceservers[0].Url},
 				}},
 			})
 			if err != nil {
-				log.Error("configure webrtc: ", err)
+				log.Error().Err(err).Msg("configure webrtc")
 				continue
 			}
 
 		case *proto.Frame_Sdp:
-			log.Tracef("sdp message received: %v", p)
-
 			if frame.Dst != s.Self {
-				log.Warnf("%v received frame for %v", s.Self, frame.Dst)
+				log.Warn().Msg("received sdp message for self")
 				continue
 			}
 
@@ -173,19 +175,19 @@ func (s *Session) Run() {
 				s.Peer = frame.Src
 				err := s.conn.SetRemoteDescription(p.SessionDescription())
 				if err != nil {
-					log.Error("set remote description: ", err)
+					log.Error().Err(err).Msg("set remote session description")
 					continue
 				}
 
 				answer, err := s.conn.CreateAnswer(nil)
 				if err != nil {
-					log.Error("create answer: ", err)
+					log.Error().Err(err).Msg("create answer")
 					continue
 				}
 
 				err = s.conn.SetLocalDescription(answer)
 				if err != nil {
-					log.Error("set local description: ", err)
+					log.Error().Err(err).Msg("set local session description")
 					continue
 				}
 
@@ -195,19 +197,19 @@ func (s *Session) Run() {
 					Payload: proto.PayloadWithSD(answer),
 				}
 				if err = s.signal.Send(frame); err != nil {
-					log.Error("send answer: ", err)
+					log.Error().Err(err).Msg("send answer")
 					continue
 				}
 			case proto.SDP_ANSWER:
 				err := s.conn.SetRemoteDescription(p.SessionDescription())
 				if err != nil {
-					log.Errorf("set remote description: %v", err)
+					log.Error().Err(err).Msg("set remote session description")
 					continue
 				}
 			}
 		}
 	}
-	log.Info("session closed")
+	log.Info().Msg("session closed")
 
 }
 
@@ -220,7 +222,7 @@ func (s *Session) SetOverlay(id int, o *gtk.DrawingArea) {
 }
 
 func (s *Session) handleICEStateChange(cs webrtc.ICEConnectionState) {
-	log.Info("ICE connection state: ", cs.String())
+	log.Info().Stringer("state", cs).Msg("ICE connection state changed")
 	switch cs {
 	case webrtc.ICEConnectionStateConnected:
 		s.events <- EventSessionStart{}
@@ -234,11 +236,15 @@ func (s *Session) handleICEStateChange(cs webrtc.ICEConnectionState) {
 }
 
 func (s *Session) handleSignalingStateChange(st webrtc.SignalingState) {
-	log.Info("webrtc signaling state: ", st.String())
+	log.Info().Stringer("state", st).Msg("webrtc signaling state changed")
 }
 
 func (s *Session) handleTrack(track *webrtc.Track, receiver *webrtc.RTPReceiver) {
-	log.Infof("new track ID: %v Label: %v", track.ID(), track.Label())
+	log.Info().
+		Str("track_id", track.ID()).
+		Str("track_label", track.Label()).
+		Msg("new track")
+
 	// temporary workaround until pion webrtc implements incoming RTCP events
 	go func() {
 		ticker := time.NewTicker(time.Second * 3)
@@ -249,7 +255,11 @@ func (s *Session) handleTrack(track *webrtc.Track, receiver *webrtc.RTPReceiver)
 			if err == io.ErrClosedPipe {
 				return
 			} else if err != nil {
-				log.Error("rctp send error: ", err)
+				log.Error().
+					Str("track_id", track.ID()).
+					Str("track_label", track.Label()).
+					Err(err).
+					Msg("rctp send")
 			}
 		}
 	}()
@@ -262,14 +272,14 @@ func (s *Session) handleTrack(track *webrtc.Track, receiver *webrtc.RTPReceiver)
 	*/
 	switch track.Label() {
 	case "devnet-voice":
-		log.Trace("remote voice track, starting receive ")
+		log.Trace().Str("track_label", track.Label()).Msg("starting receive")
 		s.rs[RemoteVoice].Receive(track)
 	case "devnet-screen":
-		log.Trace("remote screen track, starting receive ")
+		log.Trace().Str("track_label", track.Label()).Msg("starting receive")
 		s.events <- EventSCInboundStart{}
 		s.rs[RemoteScreen].Receive(track)
 	default:
-		log.Errorf("track label unknown: %s", track.Label())
+		log.Error().Str("track_label", track.Label()).Msg("track label unknown")
 		return
 	}
 

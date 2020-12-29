@@ -9,7 +9,7 @@ import (
 	"github.com/lx7/devnet/gst"
 	"github.com/pion/webrtc/v2"
 	"github.com/pion/webrtc/v2/pkg/media"
-	log "github.com/sirupsen/logrus"
+	"github.com/rs/zerolog/log"
 )
 
 type LocalStreamOpts struct {
@@ -44,7 +44,7 @@ func NewLocalStream(c *webrtc.PeerConnection, so *LocalStreamOpts) (*LocalStream
 		track: t,
 	}
 
-	log.Debugf("new local pipeline: %s", so.Preset.Local)
+	log.Debug().Str("pipeline", so.Preset.Local).Msg("new local pipeline")
 	s.pipeline, err = gst.NewPipeline(so.Preset.Local, so.Preset.Clock)
 	if err != nil {
 		return nil, fmt.Errorf("new pipeline: %v", err)
@@ -60,7 +60,7 @@ func (s *LocalStream) Send() {
 
 func (s *LocalStream) handleSample(sample media.Sample) {
 	if err := s.track.WriteSample(sample); err != nil {
-		log.Errorf("write sample to track: %v", err)
+		log.Error().Err(err).Msg("write sample to track")
 	}
 }
 
@@ -97,7 +97,7 @@ func NewRemoteStream(c *webrtc.PeerConnection, so RemoteStreamOpts) (*RemoteStre
 		return nil, err
 	}
 
-	log.Debugf("new inbound pipeline: %s", so.Preset.Remote)
+	log.Debug().Str("pipeline", so.Preset.Remote).Msg("new remote pipeline")
 	p, err := gst.NewPipeline(so.Preset.Remote, so.Preset.Clock)
 	if err != nil {
 		return nil, fmt.Errorf("new pipeline: %v", err)
@@ -122,7 +122,7 @@ func (s *RemoteStream) Receive(t *webrtc.Track) {
 			s.pipeline.Stop()
 			return
 		} else if err != nil {
-			log.Error("reading track buffer: ", err)
+			log.Error().Err(err).Msg("reading track buffer")
 		}
 		s.pipeline.Push(buf[:i])
 	}
