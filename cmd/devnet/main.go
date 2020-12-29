@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"runtime"
+	"strings"
 	"time"
 
 	"github.com/adrg/xdg"
@@ -21,22 +22,27 @@ const (
 	appID   = "net.echocluster.devnet"
 )
 
-var g *gui.GUI
+var _gui *gui.GUI
 
 func init() {
 	log.Logger = log.Output(zerolog.ConsoleWriter{
 		Out:        os.Stderr,
 		TimeFormat: time.RFC3339,
+		FormatFieldValue: func(i interface{}) string {
+			s := fmt.Sprintf("%s", i)
+			s = strings.Replace(s, `\n`, "\n", -1)
+			s = strings.Replace(s, `\t`, "\t", -1)
+			return s
+		},
 	})
 	runtime.LockOSThread()
 }
 
 func configure(confpath string) {
-	flag.StringP("config", "c", confpath, "Path to config file")
-	flag.StringP("auth.user", "u", "", "Username")
-	flag.StringP("auth.pass", "p", "", "Password")
-	flag.StringP("log.level", "l", "info", "Loglevel")
+	flag.StringP("config", "c", confpath, "config file")
+	flag.StringP("loglevel", "l", "info", "log level")
 	flag.Parse()
+	conf.RegisterAlias("log.level", "loglevel")
 	conf.BindPFlags(flag.CommandLine)
 
 	conf.SetConfigFile(conf.GetString("config"))
@@ -57,12 +63,10 @@ func configure(confpath string) {
 func run() int {
 	u := conf.GetString("auth.user")
 	p := conf.GetString("auth.pass")
-	header := auth.BasicAuthHeader(u, p)
+	url := conf.GetString("signaling.URL")
 
-	signal, err := client.Dial(conf.GetString("signaling.URL"), header)
-	if err != nil {
-		log.Fatal().Err(err).Msg("dial")
-	}
+	header := auth.BasicAuthHeader(u, p)
+	signal := client.Dial(url, header)
 
 	sChan := make(chan *client.Session, 1)
 	go func() {
@@ -74,15 +78,12 @@ func run() int {
 		session.Run()
 	}()
 
-	g, err = gui.New(appID, <-sChan)
+	g, err := gui.New(appID, <-sChan)
 	if err != nil {
 		log.Fatal().Err(err).Msg("gtk app")
 	}
-	return g.Run()
-}
-
-func quit() {
-	g.Quit()
+	_gui = g
+	return _gui.Run()
 }
 
 func main() {

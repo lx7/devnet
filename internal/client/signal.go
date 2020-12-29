@@ -3,6 +3,7 @@ package client
 import (
 	"crypto/tls"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/lx7/devnet/proto"
@@ -26,20 +27,31 @@ type SignalReceiver interface {
 
 // Signal provides signaling via websocket.
 type Signal struct {
-	conn *websocket.Conn
+	sync.RWMutex
+	url    string
+	header http.Header
 
-	recv chan *proto.Frame
-	done chan bool
+	conn   *websocket.Conn
+	dialer *websocket.Dialer
+	send   chan *proto.Frame
+	recv   chan *proto.Frame
+	done   chan bool
 }
 
 const (
 	handshakeTimeout = 20 * time.Second
 	connCloseTimeout = 500 * time.Millisecond
-	// TODO: enable tls cert verification
-	verifyTLS = false
+
+	readTimeout       = 10 * time.Second
+	writeTimeout      = 10 * time.Second
+	pingInterval      = 15 * time.Second
+	pongTimeout       = 20 * time.Second
+	reconnectInterval = 10 * time.Second
+	maxMessageSize    = 512
+	verifyTLS         = true
 )
 
-func Dial(url string, h http.Header) (*Signal, error) {
+func Dial(url string, h http.Header) *Signal {
 	log.Info().Str("url", url).Msg("signaling: dial")
 	dialer := &websocket.Dialer{
 		Proxy:            http.ProxyFromEnvironment,
@@ -47,32 +59,47 @@ func Dial(url string, h http.Header) (*Signal, error) {
 		TLSClientConfig:  &tls.Config{InsecureSkipVerify: !verifyTLS},
 	}
 
-	c, _, err := dialer.Dial(url, h)
-	if err != nil {
-		return nil, err
-	}
-	log.Info().Str("url", url).Msg("signaling: connected")
-
 	s := &Signal{
-		conn: c,
-		recv: make(chan *proto.Frame),
-		done: make(chan bool),
+		url:    url,
+		header: h,
+		dialer: dialer,
+		send:   make(chan *proto.Frame, 1),
+		recv:   make(chan *proto.Frame),
+		done:   make(chan bool),
 	}
+
+	go s.connect()
+	time.Sleep(1 * time.Millisecond)
 
 	go s.readPump()
-	return s, nil
+	go s.writePump()
+	return s
+}
+
+func (s *Signal) connect() {
+	s.Lock()
+	defer s.Unlock()
+	timer := time.NewTimer(0)
+	for {
+		select {
+		case <-timer.C:
+			c, _, err := s.dialer.Dial(s.url, s.header)
+			if err != nil {
+				log.Warn().Err(err).Msg("signaling: dial failed")
+				timer.Reset(reconnectInterval)
+				continue
+			}
+			s.conn = c
+			log.Info().Str("url", s.url).Msg("signaling: connected")
+			return
+		case <-s.done:
+			return
+		}
+	}
 }
 
 func (s *Signal) Send(f *proto.Frame) error {
-	data, err := f.Marshal()
-	if err != nil {
-		log.Warn().Err(err).Msg("signaling: write")
-	}
-
-	err = s.conn.WriteMessage(websocket.TextMessage, data)
-	if err != nil {
-		return err
-	}
+	s.send <- f
 	return nil
 }
 
@@ -95,18 +122,66 @@ func (s *Signal) Close() error {
 	return nil
 }
 
+func (s *Signal) writePump() {
+	ticker := time.NewTicker(pingInterval)
+	defer func() {
+		ticker.Stop()
+	}()
+	for {
+		select {
+		case frame := <-s.send:
+			data, err := frame.Marshal()
+			if err != nil {
+				log.Warn().Err(err).Msg("signaling: marshal")
+				continue
+			}
+
+			s.RLock()
+			s.conn.SetWriteDeadline(time.Now().Add(writeTimeout))
+			err = s.conn.WriteMessage(websocket.TextMessage, data)
+			s.RUnlock()
+			if err != nil {
+				log.Warn().Err(err).Msg("signaling: write message")
+				continue
+			}
+
+		case <-ticker.C:
+			s.RLock()
+			s.conn.SetWriteDeadline(time.Now().Add(writeTimeout))
+			s.RUnlock()
+			if err := s.conn.WriteMessage(websocket.PingMessage, nil); err != nil {
+				return
+			}
+		}
+	}
+}
+
 func (s *Signal) readPump() {
 	defer func() {
 		close(s.done)
-		s.conn.Close()
 	}()
+	s.RLock()
+	s.conn.SetReadLimit(maxMessageSize)
+	s.conn.SetReadDeadline(time.Now().Add(pongTimeout))
+	s.RUnlock()
 	for {
+		s.RLock()
 		_, data, err := s.conn.ReadMessage()
+		s.RUnlock()
 		if err != nil {
-			if !websocket.IsCloseError(err, websocket.CloseNormalClosure) {
-				log.Error().Err(err).Msg("signaling: read message")
+			if websocket.IsUnexpectedCloseError(err,
+				websocket.CloseNormalClosure,
+				websocket.CloseGoingAway,
+				websocket.CloseAbnormalClosure,
+			) {
+				log.Warn().Err(err).Msg("signaling: read message")
+			} else if websocket.IsCloseError(err,
+				websocket.CloseNormalClosure,
+			) {
+				return
 			}
-			break
+			s.connect()
+			continue
 		}
 
 		f := &proto.Frame{}

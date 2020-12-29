@@ -19,7 +19,11 @@ func Echo(w http.ResponseWriter, r *http.Request) {
 	for {
 		mt, m, err := c.ReadMessage()
 		if err != nil {
-			if !websocket.IsCloseError(err, websocket.CloseNormalClosure) {
+			if websocket.IsUnexpectedCloseError(err,
+				websocket.CloseNormalClosure,
+				websocket.CloseGoingAway,
+				websocket.CloseAbnormalClosure,
+			) {
 				log.Fatal().Err(err).Msg("testutil echohandler close error")
 			}
 			return

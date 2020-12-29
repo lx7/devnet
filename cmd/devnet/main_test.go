@@ -6,11 +6,10 @@ import (
 
 	"github.com/lx7/devnet/internal/server"
 	"github.com/lx7/devnet/internal/testutil"
-	"github.com/stretchr/testify/assert"
-
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	conf "github.com/spf13/viper"
+	"github.com/stretchr/testify/assert"
 )
 
 func init() {
@@ -78,7 +77,7 @@ func TestClientCmd_Run(t *testing.T) {
 
 	go func() {
 		time.Sleep(1 * time.Second)
-		quit()
+		_gui.Quit()
 	}()
 
 	// start client

@@ -18,8 +18,7 @@ func TestSignal_Echo(t *testing.T) {
 	url := "ws" + strings.TrimPrefix(server.URL, "http")
 
 	time.Sleep(100 * time.Millisecond)
-	signal, err := Dial(url, nil)
-	assert.NoError(t, err)
+	signal := Dial(url, nil)
 
 	// test echo
 	give := &proto.Frame{
@@ -42,8 +41,6 @@ func TestSignal_Echo(t *testing.T) {
 
 	time.Sleep(100 * time.Millisecond)
 	signal.Close()
-	// wait for connection timeout
-	time.Sleep(600 * time.Millisecond)
-
+	time.Sleep(100 * time.Millisecond)
 	server.Close()
 }
