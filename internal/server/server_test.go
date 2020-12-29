@@ -5,6 +5,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -12,6 +13,7 @@ import (
 	"github.com/rs/zerolog"
 
 	"github.com/gorilla/websocket"
+	"github.com/posener/wstest"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
@@ -27,7 +29,6 @@ func init() {
 }
 
 var conf *viper.Viper
-var s *Server
 
 func init() {
 	conf = viper.New()
@@ -36,22 +37,23 @@ func init() {
 		log.Fatal().Err(err).Msg("config file")
 	}
 	conf.Set("signaling.addr", "127.0.0.1:40100")
-
-	go func() {
-		s = New(conf)
-		if err := s.Serve(); err != nil {
-			log.Fatal().Err(err).Msg("serve")
-		}
-	}()
-	time.Sleep(20 * time.Millisecond)
 }
 
 func TestServer_Echo(t *testing.T) {
+	// run server
+	s := New(conf)
+	wg := sync.WaitGroup{}
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		s.sw.Run()
+	}()
+
 	// connect websocket
+	d := wstest.NewDialer(http.HandlerFunc(s.serveWS))
 	header := make(http.Header)
 	header.Add("Authorization", "Basic dGVzdHVzZXI6dGVzdA==")
-	url := "ws://127.0.0.1:40100/channel"
-	ws, _, err := websocket.DefaultDialer.Dial(url, header)
+	ws, _, err := d.Dial("ws://localhost/channel", header)
 	require.NoError(t, err)
 	defer ws.Close()
 
@@ -109,10 +111,14 @@ func TestServer_Echo(t *testing.T) {
 		})
 	}
 	ws.Close()
-	time.Sleep(20 * time.Millisecond)
+	s.sw.Shutdown()
+	wg.Wait()
 }
 
 func TestServer_WSHandler(t *testing.T) {
+	// create new server instance
+	s := New(conf)
+
 	tests := []struct {
 		desc     string
 		give     *http.Request
@@ -149,7 +155,12 @@ func TestServer_WSHandler(t *testing.T) {
 			rr := httptest.NewRecorder()
 			handler := http.HandlerFunc(s.serveWS)
 
+			l := zerolog.GlobalLevel()
+			if tt.wantCode >= 300 {
+				zerolog.SetGlobalLevel(zerolog.FatalLevel)
+			}
 			handler.ServeHTTP(rr, tt.give)
+			zerolog.SetGlobalLevel(l)
 
 			assert.Equal(t, tt.wantCode, rr.Code)
 			assert.Equal(t, tt.wantBody, strings.TrimSpace(rr.Body.String()))
@@ -158,6 +169,9 @@ func TestServer_WSHandler(t *testing.T) {
 }
 
 func TestServer_OKHandler(t *testing.T) {
+	// create new server instance
+	s := New(conf)
+
 	tests := []struct {
 		desc     string
 		give     *http.Request
@@ -189,6 +203,18 @@ func TestServer_OKHandler(t *testing.T) {
 }
 
 func TestServer_AuthRequest(t *testing.T) {
+	// run server
+	s := New(conf)
+	wg := sync.WaitGroup{}
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		if err := s.Serve(); err != nil {
+			log.Fatal().Err(err).Msg("serve")
+		}
+	}()
+	time.Sleep(10 * time.Millisecond)
+
 	// define cases
 	tests := []struct {
 		desc     string
@@ -260,4 +286,6 @@ func TestServer_AuthRequest(t *testing.T) {
 			}
 		})
 	}
+	s.Shutdown()
+	wg.Wait()
 }
