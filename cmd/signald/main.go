@@ -2,10 +2,13 @@ package main
 
 import (
 	"fmt"
+	"os"
+	"time"
 
 	"github.com/lx7/devnet/internal/server"
 
-	log "github.com/sirupsen/logrus"
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 	flag "github.com/spf13/pflag"
 	conf "github.com/spf13/viper"
 )
@@ -13,8 +16,9 @@ import (
 const appName = "devnet"
 
 func init() {
-	log.SetFormatter(&log.TextFormatter{
-		//FullTimestamp: true,
+	log.Logger = log.Output(zerolog.ConsoleWriter{
+		Out:        os.Stderr,
+		TimeFormat: time.RFC3339,
 	})
 }
 
@@ -27,13 +31,13 @@ func configure(confpath string) {
 	conf.SetConfigFile(conf.GetString("config"))
 	err := conf.ReadInConfig()
 	if err != nil {
-		log.Fatal("failed reading config file: ", err)
+		log.Fatal().Err(err).Msg("failed to read config file")
 	}
 
-	if loglevel, err := log.ParseLevel(conf.GetString("loglevel")); err != nil {
-		log.Error("failed to set log level: ", err)
+	if ll, err := zerolog.ParseLevel(conf.GetString("loglevel")); err != nil {
+		log.Error().Err(err).Msg("failed to set log level")
 	} else {
-		log.SetLevel(loglevel)
+		zerolog.SetGlobalLevel(ll)
 	}
 }
 
@@ -41,7 +45,7 @@ func run() {
 	s := server.New(conf.GetViper())
 	err := s.Serve()
 	if err != nil {
-		log.Fatal("http server: ", err)
+		log.Fatal().Err(err).Msg("http server")
 	}
 }
 

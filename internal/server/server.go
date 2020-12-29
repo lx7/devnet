@@ -48,7 +48,7 @@ func New(conf *viper.Viper) *Server {
 // upgraded to the WebSocket protocol as defined per RFC 6455.
 func (s *Server) Serve() error {
 	wspath := s.conf.GetString("signaling.wspath")
-	log.Info().Msgf("listening on %v", wspath)
+	log.Info().Msgf("starting server on %v", s.Addr)
 
 	wg := sync.WaitGroup{}
 	wg.Add(1)
@@ -59,15 +59,16 @@ func (s *Server) Serve() error {
 
 	c := alice.New()
 	c = c.Append(hlog.NewHandler(log.Logger))
-	c = c.Append(hlog.AccessHandler(func(r *http.Request, status, size int, duration time.Duration) {
+	c = c.Append(hlog.AccessHandler(func(r *http.Request, st, si int, d time.Duration) {
 		hlog.FromRequest(r).Info().
 			Str("method", r.Method).
 			Stringer("url", r.URL).
-			Int("status", status).
-			Int("size", size).
-			Dur("duration", duration).
-			Msg("")
+			Int("status", st).
+			Int("size", si).
+			Dur("duration", d).
+			Msg("REQ")
 	}))
+	c = c.Append(hlog.RemoteAddrHandler("src"))
 	c = c.Append(auth.BasicAuth)
 	http.Handle("/", c.Then(http.HandlerFunc(s.serveOK)))
 	http.Handle(wspath, c.Then(http.HandlerFunc(s.serveWS)))
@@ -82,7 +83,7 @@ func (s *Server) Serve() error {
 // Shutdown terminates the http server.
 func (s *Server) Shutdown() {
 	if err := s.Server.Shutdown(context.TODO()); err != nil {
-		log.Error().Msgf("server shutdown: %v", err)
+		log.Error().Err(err).Msg("server shutdown")
 	}
 	s.sw.Shutdown()
 	log.Info().Msg("server shutdown complete")
@@ -99,14 +100,14 @@ func (s *Server) serveWS(w http.ResponseWriter, r *http.Request) {
 
 	conn, err := s.upgrader.Upgrade(w, r, nil)
 	if err != nil {
-		log.Error().Msgf("%v", err)
+		log.Error().Err(err).Msg("upgrade")
 		return
 	}
 	c := NewClient(conn, user)
 
 	err = c.Configure(s.conf.Sub("client"))
 	if err != nil {
-		log.Error().Msgf("configure client: %v", err)
+		log.Error().Err(err).Msg("configure client")
 		code := http.StatusInternalServerError
 		http.Error(w, http.StatusText(code), code)
 		return

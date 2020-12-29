@@ -1,16 +1,24 @@
 package main
 
 import (
-	"fmt"
 	"io/ioutil"
 	"net/http"
+	"os"
 	"testing"
 	"time"
 
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 	conf "github.com/spf13/viper"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func init() {
+	log.Logger = log.Output(zerolog.ConsoleWriter{
+		Out:        os.Stderr,
+		TimeFormat: time.RFC3339,
+	})
 	configure("../../configs/signald.yaml")
 }
 
@@ -33,21 +41,19 @@ func TestServerCmd_Response(t *testing.T) {
 	go run()
 
 	// allow for some startup time
-	time.Sleep(100 * time.Millisecond)
+	time.Sleep(10 * time.Millisecond)
 
-	resp, err := http.Get(fmt.Sprintf("http://%s", conf.GetString("signaling.addr")))
-	if err != nil {
-		t.Fatal(err)
-	}
+	client := &http.Client{}
+	url := "http://" + conf.GetString("signaling.addr")
+	req, err := http.NewRequest("GET", url, nil)
+	require.NoError(t, err)
 
-	defer resp.Body.Close()
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		t.Fatal(err)
-	}
+	req.Header.Add("Authorization", "Basic dGVzdHVzZXI6dGVzdA==")
+	res, err := client.Do(req)
+	require.NoError(t, err)
 
-	exp := "OK"
-	if got := string(body); got != exp {
-		t.Errorf("response body: exp: '%v' got: '%v'", exp, got)
-	}
+	defer res.Body.Close()
+	body, err := ioutil.ReadAll(res.Body)
+	require.NoError(t, err)
+	assert.Equal(t, "OK", string(body))
 }

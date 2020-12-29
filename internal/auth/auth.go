@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/rs/zerolog/hlog"
 	"github.com/spf13/viper"
 )
 
@@ -50,8 +51,14 @@ func BasicAuth(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		user, pass, ok := r.BasicAuth()
 		if ok && UserPass(user, pass) {
+			hlog.FromRequest(r).Info().
+				Str("user", user).
+				Msg("user authorized")
 			next.ServeHTTP(w, r)
 		} else {
+			hlog.FromRequest(r).Warn().
+				Str("user", user).
+				Msg("authorization failed")
 			code := http.StatusUnauthorized
 			http.Error(w, http.StatusText(code), code)
 			return
