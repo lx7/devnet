@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"net/http"
 
-	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 )
 
@@ -38,19 +37,16 @@ func UserPass(user string, pass string) bool {
 	str := fmt.Sprintf("%x", sum)
 	u, ok := userMap[user]
 	if !ok {
-		log.Warn("authentication failure: ", user)
 		return false
 	}
 	if str != u.Hash {
-		log.Warn("authentication failure: ", user)
 		return false
 	}
-	log.Trace("authenticated user: ", user)
 	return true
 }
 
 // BasicAuth provides an authentication wrapper for http.HandlerFunc.
-func BasicAuth(next http.HandlerFunc) http.HandlerFunc {
+func BasicAuth(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		user, pass, ok := r.BasicAuth()
 		if ok && UserPass(user, pass) {

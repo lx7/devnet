@@ -7,7 +7,7 @@ import (
 	"github.com/spf13/viper"
 
 	"github.com/gorilla/websocket"
-	log "github.com/sirupsen/logrus"
+	"github.com/rs/zerolog/log"
 )
 
 // Client defines the client connection handler and attaches to a switch.
@@ -94,20 +94,20 @@ func (c *DefaultClient) readPump() {
 				websocket.CloseNormalClosure,
 				websocket.CloseAbnormalClosure,
 			) {
-				log.Error("read message: ", err)
+				log.Warn().Str("user", c.name).Err(err).Msg("read message")
 			}
 			break
 		}
 
 		f := &proto.Frame{}
 		if err := f.Unmarshal(data); err != nil {
-			log.Warn("unmarshal message: ", err)
+			log.Warn().Str("user", c.name).Err(err).Msg("unmarshal message")
 			continue
 		}
 
 		c.sw.Forward() <- f
 	}
-	log.Trace("stopping read pump")
+	log.Trace().Str("user", c.name).Msg("client read pump done")
 	c.sw.Unregister(c)
 }
 
@@ -115,12 +115,12 @@ func (c *DefaultClient) writePump() {
 	for f := range c.send {
 		data, err := f.Marshal()
 		if err != nil {
-			log.Warn("marshal message: ", err)
+			log.Warn().Str("user", c.name).Err(err).Msg("marshal message")
 		}
 
 		err = c.conn.WriteMessage(websocket.BinaryMessage, data)
 		if err != nil {
-			log.Warn("write message: ", err)
+			log.Warn().Str("user", c.name).Err(err).Msg("write message")
 		}
 	}
 }

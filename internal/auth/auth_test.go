@@ -4,35 +4,42 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
+	"time"
 
-	log "github.com/sirupsen/logrus"
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 func init() {
-	log.SetLevel(log.ErrorLevel)
+	log.Logger = log.Output(zerolog.ConsoleWriter{
+		Out:        os.Stderr,
+		TimeFormat: time.RFC3339,
+	})
+}
 
+func init() {
 	conf := viper.New()
 	conf.SetConfigFile("../../configs/signald.yaml")
 	if err := conf.ReadInConfig(); err != nil {
-		log.Fatal("failed reading config file: ", err)
+		log.Fatal().Err(err).Msg("read config file")
 	}
 
 	err := Configure(conf.Sub("auth"))
 	if err != nil {
-		log.Fatal("configure: ", err)
+		log.Fatal().Err(err).Msg("configure")
 	}
 }
 
-func TestBasicAuthHandler(t *testing.T) {
-
-	okResponder := func(w http.ResponseWriter, r *http.Request) {
+func TestBasicAuth_Handler(t *testing.T) {
+	okResponder := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprint(w, "OK")
-	}
+	})
 
 	tests := []struct {
 		desc     string
@@ -93,7 +100,7 @@ func TestBasicAuthHandler(t *testing.T) {
 			req.SetBasicAuth(tt.giveUser, tt.givePass)
 
 			rr := httptest.NewRecorder()
-			handler := http.HandlerFunc(BasicAuth(okResponder))
+			handler := BasicAuth(okResponder)
 			handler.ServeHTTP(rr, req)
 
 			assert.Equal(t, tt.wantCode, rr.Code)
@@ -102,7 +109,7 @@ func TestBasicAuthHandler(t *testing.T) {
 	}
 }
 
-func TestBasicAuthHeader(t *testing.T) {
+func TestBasicAuth_Header(t *testing.T) {
 	want := make(http.Header)
 	want.Add("Authorization", "Basic dGVzdHVzZXI6dGVzdA==")
 

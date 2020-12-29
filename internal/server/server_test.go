@@ -2,32 +2,45 @@ package server
 
 import (
 	"net/http"
+	"net/http/httptest"
+	"os"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/lx7/devnet/proto"
+	"github.com/rs/zerolog"
 
 	"github.com/gorilla/websocket"
-	log "github.com/sirupsen/logrus"
+	"github.com/rs/zerolog/log"
 	"github.com/spf13/viper"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	pb "google.golang.org/protobuf/proto"
 )
 
+func init() {
+	log.Logger = log.Output(zerolog.ConsoleWriter{
+		Out:        os.Stderr,
+		TimeFormat: time.RFC3339,
+	})
+}
+
 var conf *viper.Viper
+var s *Server
 
 func init() {
 	conf = viper.New()
 	conf.SetConfigFile("../../configs/signald.yaml")
 	if err := conf.ReadInConfig(); err != nil {
-		log.Fatal("failed reading config file: ", err)
+		log.Fatal().Err(err).Msg("config file")
 	}
 	conf.Set("signaling.addr", "127.0.0.1:40100")
 
 	go func() {
-		s := New(conf)
+		s = New(conf)
 		if err := s.Serve(); err != nil {
-			log.Fatal("serve: ", err)
+			log.Fatal().Err(err).Msg("serve")
 		}
 	}()
 	time.Sleep(20 * time.Millisecond)
@@ -79,49 +92,147 @@ func TestServer_Echo(t *testing.T) {
 		t.Run(tt.desc, func(t *testing.T) {
 			if tt.give != nil {
 				out, err := tt.give.Marshal()
-				require.NoError(t, err, "marshal should not cause an error")
+				require.NoError(t, err)
 				err = ws.WriteMessage(tt.giveType, out)
-				require.NoError(t, err, "ws write should not cause an error")
+				require.NoError(t, err)
 				time.Sleep(10 * time.Millisecond)
 			}
 			_, in, err := ws.ReadMessage()
-			require.NoError(t, err, "ws read should not cause an error")
+			require.NoError(t, err)
 
 			have := &proto.Frame{}
 			err = have.Unmarshal(in)
-			require.NoError(t, err, "unmarshal should not cause an error")
+			require.NoError(t, err)
 			if !pb.Equal(tt.want, have) {
 				t.Errorf("want: %v\nhave: %v\n", tt.want, have)
 			}
 		})
 	}
+	ws.Close()
+	time.Sleep(20 * time.Millisecond)
 }
 
-func TestServer_Auth(t *testing.T) {
+func TestServer_WSHandler(t *testing.T) {
+	tests := []struct {
+		desc     string
+		give     *http.Request
+		wantCode int
+		wantBody string
+	}{
+		{
+			desc: "without basic auth",
+			give: func() *http.Request {
+				req, err := http.NewRequest("GET", "/", nil)
+				req.RemoteAddr = "0.0.0.0:80"
+				require.NoError(t, err)
+				return req
+			}(),
+			wantCode: http.StatusUnauthorized,
+			wantBody: "Unauthorized",
+		},
+		{
+			desc: "no ws upgrade token",
+			give: func() *http.Request {
+				req, err := http.NewRequest("GET", "/channel", nil)
+				require.NoError(t, err)
+
+				req.SetBasicAuth("testuser", "testpass")
+				return req
+			}(),
+			wantCode: http.StatusBadRequest,
+			wantBody: "Bad Request",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.desc, func(t *testing.T) {
+			rr := httptest.NewRecorder()
+			handler := http.HandlerFunc(s.serveWS)
+
+			handler.ServeHTTP(rr, tt.give)
+
+			assert.Equal(t, tt.wantCode, rr.Code)
+			assert.Equal(t, tt.wantBody, strings.TrimSpace(rr.Body.String()))
+		})
+	}
+}
+
+func TestServer_OKHandler(t *testing.T) {
+	tests := []struct {
+		desc     string
+		give     *http.Request
+		wantCode int
+		wantBody string
+	}{
+		{
+			desc: "simple request",
+			give: func() *http.Request {
+				req, err := http.NewRequest("GET", "/", nil)
+				require.NoError(t, err)
+				return req
+			}(),
+			wantCode: http.StatusOK,
+			wantBody: "OK",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.desc, func(t *testing.T) {
+			rr := httptest.NewRecorder()
+			handler := http.HandlerFunc(s.serveOK)
+			handler.ServeHTTP(rr, tt.give)
+
+			assert.Equal(t, tt.wantCode, rr.Code)
+			assert.Equal(t, tt.wantBody, strings.TrimSpace(rr.Body.String()))
+		})
+	}
+}
+
+func TestServer_AuthRequest(t *testing.T) {
 	// define cases
 	tests := []struct {
 		desc     string
 		giveAuth string
+		giveURL  string
+		wantCode int
 		wantErr  error
 	}{
 		{
-			desc:     "no auth header",
+			desc:     "ws: no auth header",
+			giveURL:  "ws://127.0.0.1:40100/channel",
 			giveAuth: "",
 			wantErr:  websocket.ErrBadHandshake,
 		},
 		{
-			desc:     "invalid auth header",
+			desc:     "ws: invalid auth header",
+			giveURL:  "ws://127.0.0.1:40100/channel",
 			giveAuth: "Basic kDgmmNnabzatzZmvAV",
 			wantErr:  websocket.ErrBadHandshake,
 		},
 		{
-			desc:     "correct auth header",
+			desc:     "ws: correct auth header",
+			giveURL:  "ws://127.0.0.1:40100/channel",
 			giveAuth: "Basic dGVzdHVzZXI6dGVzdA==",
-			wantErr:  nil,
+		},
+		{
+			desc:     "plain: no auth header",
+			giveURL:  "http://127.0.0.1:40100/",
+			giveAuth: "",
+			wantCode: 401,
+		},
+		{
+			desc:     "plain: invalid auth header",
+			giveURL:  "http://127.0.0.1:40100/",
+			giveAuth: "Basic kDgmmNnabzatzZmvAV",
+			wantCode: 401,
+		},
+		{
+			desc:     "plain: correct auth header",
+			giveURL:  "http://127.0.0.1:40100/",
+			giveAuth: "Basic dGVzdHVzZXI6dGVzdA==",
+			wantCode: 200,
 		},
 	}
-
-	url := "ws://127.0.0.1:40100/channel"
 
 	// run tests
 	for _, tt := range tests {
@@ -130,11 +241,22 @@ func TestServer_Auth(t *testing.T) {
 			if tt.giveAuth != "" {
 				header.Add("Authorization", tt.giveAuth)
 			}
-			ws, _, err := websocket.DefaultDialer.Dial(url, header)
-			require.Equal(t, tt.wantErr, err)
 
-			if ws != nil {
-				ws.Close()
+			if strings.HasPrefix(tt.giveURL, "ws://") {
+				ws, _, err := websocket.DefaultDialer.Dial(tt.giveURL, header)
+				require.Equal(t, tt.wantErr, err)
+				if ws != nil {
+					ws.Close()
+				}
+			} else {
+				client := &http.Client{}
+				req, err := http.NewRequest("GET", tt.giveURL, nil)
+				require.NoError(t, err)
+
+				req.Header.Add("Authorization", tt.giveAuth)
+				res, err := client.Do(req)
+				require.Equal(t, tt.wantErr, err)
+				assert.Equal(t, tt.wantCode, res.StatusCode)
 			}
 		})
 	}

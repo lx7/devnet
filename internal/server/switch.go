@@ -3,7 +3,7 @@ package server
 import (
 	"github.com/lx7/devnet/proto"
 
-	log "github.com/sirupsen/logrus"
+	"github.com/rs/zerolog/log"
 )
 
 // Switch provides message forwarding between clients.
@@ -59,11 +59,11 @@ func (sw *DefaultSwitch) Run() {
 	for {
 		select {
 		case client := <-sw.register:
-			log.Info("registering new client: ", client.Name())
+			log.Info().Str("user", client.Name()).Msg("registering client")
 			sw.clients[client.Name()] = client
 		case client := <-sw.unregister:
 			if _, ok := sw.clients[client.Name()]; ok {
-				log.Info("unregistering client: ", client.Name())
+				log.Info().Str("user", client.Name()).Msg("unregistering client")
 				delete(sw.clients, client.Name())
 				close(client.Send())
 			}
@@ -78,14 +78,20 @@ func (sw *DefaultSwitch) Run() {
 		case f := <-sw.forward:
 			if client, ok := sw.clients[f.Dst]; ok {
 				// TODO: verify sender
-				log.Tracef("forwarding message: %s -> %s", f.Src, f.Dst)
+				log.Trace().
+					Str("src", f.Src).
+					Str("dst", f.Dst).
+					Msg("forwarding message")
 				select {
 				case client.Send() <- f:
 				default:
 					sw.unregister <- client
 				}
 			} else {
-				log.Tracef("client %s absent, discarding message", f.Dst)
+				log.Trace().
+					Str("src", f.Src).
+					Str("dst", f.Dst).
+					Msg("client absent, discarding message")
 			}
 		case <-sw.done:
 			return
