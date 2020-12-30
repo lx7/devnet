@@ -22,8 +22,10 @@ func (w *videoWindow) Populate(b *builder) error {
 }
 
 func (w *videoWindow) onDaEvent(da *gtk.DrawingArea, ev *gdk.Event) bool {
-	//evMotion := gdk.EventMotionNewFromEvent(ev)
-	//x, y := evMotion.MotionVal()
+	// evMotion := gdk.EventMotionNewFromEvent(ev)
+	// x, y := evMotion.MotionVal()
+
+	// log.Printf("x: %v y: %v", int(x), int(y))
 
 	// labelX.SetLabel(fmt.Sprintf("%d", int(x)))
 	// labelY.SetLabel(fmt.Sprintf("%d", int(y)))

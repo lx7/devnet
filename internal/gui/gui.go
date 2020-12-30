@@ -12,11 +12,6 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-func init() {
-	//TODO: lock here or in main?
-	//runtime.LockOSThread()
-}
-
 const (
 	layoutPath = "/static/main.ui"
 	stylePath  = "/static/gtk.css"
@@ -24,6 +19,7 @@ const (
 
 var localFiles = os.Getenv("DEVNET_LOCAL") != ""
 
+// GUI represents the DevNet GTK interface.
 type GUI struct {
 	app         *gtk.Application
 	mainWindow  *mainWindow
@@ -32,6 +28,8 @@ type GUI struct {
 	ready       chan bool
 }
 
+// New returns a new instance of GUI. It requires a uniqe GTK application id and
+// interfaces with the business logic through client.Session.
 func New(id string, s client.SessionI) (*GUI, error) {
 	app, err := gtk.ApplicationNew(id, glib.APPLICATION_FLAGS_NONE)
 	if err != nil {
@@ -52,6 +50,10 @@ func New(id string, s client.SessionI) (*GUI, error) {
 	return g, nil
 }
 
+// Run represents the gdk main loop. It executes the GUI logic and must be
+// locked to the main thread (see runtime.LockOSThread()). Processing intensive
+// non-GUI work should be done on a separate thread to minimize interference.
+// Run() wil return when the application exits.
 func (g *GUI) Run() int {
 	done := make(chan struct{})
 	defer close(done)
@@ -61,7 +63,7 @@ func (g *GUI) Run() int {
 		for {
 			select {
 			case e := <-g.session.Events():
-				g.onEvent(e)
+				g.onSessionEvent(e)
 			case <-g.ready:
 				g.session.SetOverlay(client.RemoteScreen, g.videoWindow.overlay)
 			case <-done:
@@ -74,11 +76,12 @@ func (g *GUI) Run() int {
 	return g.app.Run(nil)
 }
 
+// Quit immediately quits the application and lets the main loop return.
 func (g *GUI) Quit() {
 	execOnMain(func() { g.app.Quit() })
 }
 
-func (g *GUI) onEvent(e client.Event) {
+func (g *GUI) onSessionEvent(e client.Event) {
 	switch e.(type) {
 	case client.EventConnected:
 		execOnMain(func() {
@@ -188,6 +191,6 @@ func (g *GUI) onShareButtonToggle(b *gtk.ToggleButton) {
 func execOnMain(f interface{}, args ...interface{}) {
 	_, err := glib.IdleAdd(f, args)
 	if err != nil {
-		log.Error().Interface("func", f).Msg("failed to run func on main")
+		log.Error().Interface("func", f).Msg("failed to run func on main loop")
 	}
 }
