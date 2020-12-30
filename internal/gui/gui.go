@@ -21,7 +21,8 @@ var localFiles = os.Getenv("DEVNET_LOCAL") != ""
 
 // GUI represents the DevNet GTK interface.
 type GUI struct {
-	app         *gtk.Application
+	*gtk.Application
+
 	mainWindow  *mainWindow
 	videoWindow *videoWindow
 	session     client.SessionI
@@ -36,16 +37,16 @@ func New(id string, s client.SessionI) (*GUI, error) {
 		return nil, fmt.Errorf("failed to create gtk application: %v", err)
 	}
 	g := &GUI{
-		app:         app,
+		Application: app,
 		mainWindow:  &mainWindow{},
 		videoWindow: &videoWindow{},
 		session:     s,
 		ready:       make(chan bool),
 	}
 
-	app.Connect("startup", g.onStartup)
-	app.Connect("activate", g.onActivate)
-	app.Connect("shutdown", g.onShutdown)
+	g.Connect("startup", g.onStartup)
+	g.Connect("activate", g.onActivate)
+	g.Connect("shutdown", g.onShutdown)
 
 	return g, nil
 }
@@ -73,12 +74,12 @@ func (g *GUI) Run() int {
 		}
 	}()
 
-	return g.app.Run(nil)
+	return g.Application.Run(nil)
 }
 
 // Quit immediately quits the application and lets the main loop return.
 func (g *GUI) Quit() {
-	execOnMain(func() { g.app.Quit() })
+	execOnMain(func() { g.Application.Quit() })
 }
 
 func (g *GUI) onSessionEvent(e client.Event) {
@@ -145,12 +146,12 @@ func (g *GUI) onStartup() {
 	if err := g.mainWindow.Populate(builder); err != nil {
 		log.Fatal().Err(err).Msg("populate main window")
 	}
-	g.app.AddWindow(g.mainWindow)
+	g.AddWindow(g.mainWindow)
 
 	if err := g.videoWindow.Populate(builder); err != nil {
 		log.Fatal().Err(err).Msg("populate video window")
 	}
-	g.app.AddWindow(g.videoWindow)
+	g.AddWindow(g.videoWindow)
 
 }
 
@@ -167,7 +168,7 @@ func (g *GUI) onShutdown() {
 }
 
 func (g *GUI) onDestroy() {
-	g.app.Quit()
+	g.Application.Quit()
 }
 
 func (g *GUI) onCallUser1() {
