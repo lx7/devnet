@@ -110,3 +110,6 @@ func (s *fakeSignal) Send(f *proto.Frame) error {
 func (s *fakeSignal) Receive() <-chan *proto.Frame {
 	return s.recv
 }
+
+func (s *fakeSignal) HandleStateChange(SignalStateHandler) {
+}

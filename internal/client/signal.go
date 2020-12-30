@@ -12,6 +12,26 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+type SignalState int
+
+const (
+	SignalStateDisconnected SignalState = iota
+	SignalStateConnected
+)
+
+func (s SignalState) String() string {
+	switch s {
+	case SignalStateDisconnected:
+		return "disconnected"
+	case SignalStateConnected:
+		return "connected"
+	default:
+		return "unknown"
+	}
+}
+
+type SignalStateHandler func(SignalState)
+
 type SignalSendReceiver interface {
 	SignalSender
 	SignalReceiver
@@ -19,10 +39,12 @@ type SignalSendReceiver interface {
 
 type SignalSender interface {
 	Send(*proto.Frame) error
+	HandleStateChange(SignalStateHandler)
 }
 
 type SignalReceiver interface {
 	Receive() <-chan *proto.Frame
+	HandleStateChange(SignalStateHandler)
 }
 
 // Signal provides signaling via websocket.
@@ -36,6 +58,8 @@ type Signal struct {
 	send   chan *proto.Frame
 	recv   chan *proto.Frame
 	done   chan bool
+	state  SignalState
+	h      SignalStateHandler
 }
 
 const (
@@ -77,6 +101,7 @@ func Dial(url string, h http.Header) *Signal {
 }
 
 func (s *Signal) connect() {
+	s.setState(SignalStateDisconnected)
 	s.Lock()
 	defer s.Unlock()
 	timer := time.NewTimer(0)
@@ -90,12 +115,27 @@ func (s *Signal) connect() {
 				continue
 			}
 			s.conn = c
+			s.setState(SignalStateConnected)
 			log.Info().Str("url", s.url).Msg("signaling: connected")
 			return
 		case <-s.done:
 			return
 		}
 	}
+}
+
+func (s *Signal) setState(st SignalState) {
+	if st != s.state {
+		s.state = st
+		if s.h != nil {
+			s.h(st)
+		}
+	}
+}
+
+func (s *Signal) HandleStateChange(h SignalStateHandler) {
+	s.h = h
+	h(s.state)
 }
 
 func (s *Signal) Send(f *proto.Frame) error {
@@ -159,6 +199,7 @@ func (s *Signal) writePump() {
 func (s *Signal) readPump() {
 	defer func() {
 		close(s.done)
+		s.setState(SignalStateDisconnected)
 	}()
 	s.RLock()
 	s.conn.SetReadLimit(maxMessageSize)
@@ -178,7 +219,7 @@ func (s *Signal) readPump() {
 			} else if websocket.IsCloseError(err,
 				websocket.CloseNormalClosure,
 			) {
-				return
+				break
 			}
 			s.connect()
 			continue

@@ -111,8 +111,8 @@ func NewSession(self string, signal SignalSendReceiver) (*Session, error) {
 		return nil, err
 	}
 
+	s.signal.HandleStateChange(s.handleSignalStateChange)
 	s.conn.OnICEConnectionStateChange(s.handleICEStateChange)
-	s.conn.OnSignalingStateChange(s.handleSignalingStateChange)
 	s.conn.OnTrack(s.handleTrack)
 
 	return &s, nil
@@ -221,9 +221,19 @@ func (s *Session) SetOverlay(id int, o *gtk.DrawingArea) {
 	s.rs[id].SetOverlay(o)
 }
 
-func (s *Session) handleICEStateChange(cs webrtc.ICEConnectionState) {
-	log.Info().Stringer("state", cs).Msg("ICE connection state changed")
-	switch cs {
+func (s *Session) handleSignalStateChange(st SignalState) {
+	log.Info().Stringer("state", st).Msg("signal connection state changed")
+	switch st {
+	case SignalStateConnected:
+		s.events <- EventConnected{}
+	case SignalStateDisconnected:
+		s.events <- EventDisconnected{}
+	}
+}
+
+func (s *Session) handleICEStateChange(st webrtc.ICEConnectionState) {
+	log.Info().Stringer("state", st).Msg("ICE connection state changed")
+	switch st {
 	case webrtc.ICEConnectionStateConnected:
 		s.events <- EventSessionStart{}
 		return
@@ -233,10 +243,6 @@ func (s *Session) handleICEStateChange(cs webrtc.ICEConnectionState) {
 	case webrtc.ICEConnectionStateClosed:
 	}
 	s.events <- EventSessionEnd{}
-}
-
-func (s *Session) handleSignalingStateChange(st webrtc.SignalingState) {
-	log.Info().Stringer("state", st).Msg("webrtc signaling state changed")
 }
 
 func (s *Session) handleTrack(track *webrtc.Track, receiver *webrtc.RTPReceiver) {

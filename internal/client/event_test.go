@@ -8,7 +8,7 @@ import (
 )
 
 func TestEvent(t *testing.T) {
-	s, err := NewSession("testuser", nil)
+	s, err := NewSession("testuser", &fakeSignal{})
 	assert.NoError(t, err)
 
 	c := &fakeEventConsumer{}

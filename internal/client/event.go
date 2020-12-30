@@ -10,12 +10,15 @@ import (
 
 type Event interface{}
 
+type EventConnected struct{}
+
+type EventDisconnected struct{}
+
 type EventSessionStart struct{}
 
 type EventSessionEnd struct{}
 
-type EventSCInboundStart struct {
-}
+type EventSCInboundStart struct{}
 
 type EventSCInboundEnd struct{}
 
