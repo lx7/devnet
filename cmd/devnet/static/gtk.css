@@ -5,3 +5,11 @@ button.share-button:checked {
     background-image: none;
 }
 
+
+widget.video-overlay {
+    background-color: green;
+}
+
+frame.video-frame {
+    background-color: black;
+}
