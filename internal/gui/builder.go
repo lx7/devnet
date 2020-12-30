@@ -10,14 +10,14 @@ type builder struct {
 	*gtk.Builder
 }
 
-// BuilderNewFromString returns a new instance of gui.builder. It extends
+// builderNewFromString returns a new instance of gui.builder. It extends
 // gtk.Builder and provides specific getters for GTK objects to reduce clutter
 // in the gui logic.
 //
-// The builder.get[GTKObj]() mathods fail with a fatal error if the requested
+// The builder.get[GTKObj]() methods fail with a fatal error if the requested
 // object does not exist in the layout. Use gtk.Builder if this behaviour is
 // not desired.
-func BuilderNewFromString(s string) (*builder, error) {
+func builderNewFromString(s string) (*builder, error) {
 	b, err := gtk.BuilderNewFromString(s)
 	if err != nil {
 		return nil, err

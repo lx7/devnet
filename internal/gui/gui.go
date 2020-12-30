@@ -36,6 +36,7 @@ func New(id string, s client.SessionI) (*GUI, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to create gtk application: %v", err)
 	}
+
 	g := &GUI{
 		Application: app,
 		mainWindow:  &mainWindow{},
@@ -113,7 +114,7 @@ func (g *GUI) onStartup() {
 		log.Fatal().Err(err).Msg("failed to load layout")
 	}
 
-	builder, err := BuilderNewFromString(ui)
+	builder, err := builderNewFromString(ui)
 	if err != nil {
 		log.Fatal().Err(err).Msg("failed to read layout")
 	}
