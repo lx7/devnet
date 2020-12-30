@@ -3,6 +3,7 @@ package gui
 //go:generate esc -o static.gen.go -pkg gui -include .*\.(ui|css)$ -prefix ../../cmd/devnet ../../cmd/devnet/static
 import (
 	"fmt"
+	"os"
 
 	"github.com/gotk3/gotk3/gdk"
 	"github.com/gotk3/gotk3/glib"
@@ -20,6 +21,8 @@ const (
 	layoutPath = "/static/main.ui"
 	stylePath  = "/static/gtk.css"
 )
+
+var localFiles = os.Getenv("DEVNET_LOCAL") != ""
 
 type GUI struct {
 	app         *gtk.Application
@@ -77,10 +80,20 @@ func (g *GUI) Quit() {
 
 func (g *GUI) onEvent(e client.Event) {
 	switch e.(type) {
+	case client.EventConnected:
+		execOnMain(func() {
+			g.mainWindow.waitScreen.Hide()
+			g.mainWindow.channelList.Show()
+		})
+	case client.EventDisconnected:
+		execOnMain(func() {
+			g.mainWindow.waitScreen.Show()
+			g.mainWindow.channelList.Hide()
+		})
 	case client.EventSessionStart:
-		execOnMain(func() { g.mainWindow.shareControls.Show() })
+		execOnMain(func() { g.mainWindow.detailsBox.Show() })
 	case client.EventSessionEnd:
-		execOnMain(func() { g.mainWindow.shareControls.Hide() })
+		execOnMain(func() { g.mainWindow.detailsBox.Hide() })
 	case client.EventSCInboundStart:
 		execOnMain(func() { g.videoWindow.Show() })
 	case client.EventSCInboundEnd:
@@ -91,17 +104,17 @@ func (g *GUI) onEvent(e client.Event) {
 func (g *GUI) onStartup() {
 	log.Info().Msg("application startup")
 
-	ui, err := FSString(false, layoutPath)
+	ui, err := FSString(localFiles, layoutPath)
 	if err != nil {
 		log.Fatal().Err(err).Msg("failed to load layout")
 	}
 
-	builder, err := gtk.BuilderNewFromString(ui)
+	builder, err := BuilderNewFromString(ui)
 	if err != nil {
 		log.Fatal().Err(err).Msg("failed to read layout")
 	}
 
-	css, err := FSString(false, stylePath)
+	css, err := FSString(localFiles, stylePath)
 	if err != nil {
 		log.Fatal().Err(err).Msg("failed to load styles")
 	}

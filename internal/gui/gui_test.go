@@ -74,24 +74,35 @@ func TestGUI_Session(t *testing.T) {
 func TestGUI_Interface(t *testing.T) {
 	time.Sleep(1 * time.Second)
 
-	sChan := make(chan *fakeSession)
-	// run session in separate thread
-	go func() {
-		s := newFakeSession()
-		s.On("Events").Return()
-		s.On("SetOverlay", mock.Anything, mock.Anything).Return()
-		s.On("StartStream", mock.Anything).Return()
+	s := newFakeSession()
+	s.On("Events").Return()
+	s.On("SetOverlay", mock.Anything, mock.Anything).Return()
+	s.On("StartStream", mock.Anything).Return()
 
-		s.events <- client.EventSessionStart{}
-		sChan <- s
-	}()
-
-	gui, err := New("test.devnet", <-sChan)
+	gui, err := New("test.devnet", s)
 	assert.NoError(t, err, "constructor should not fail")
 
 	// run tests
 	go func() {
 		const interval = 1000 * time.Millisecond
+		time.Sleep(interval)
+
+		s.events <- client.EventConnected{}
+		time.Sleep(interval)
+
+		s.events <- client.EventSessionStart{}
+		time.Sleep(interval)
+
+		s.events <- client.EventDisconnected{}
+		time.Sleep(interval)
+
+		s.events <- client.EventConnected{}
+		time.Sleep(interval)
+
+		s.events <- client.EventSCInboundStart{}
+		time.Sleep(interval)
+
+		s.events <- client.EventSCInboundEnd{}
 		time.Sleep(interval)
 
 		glib.IdleAdd(gui.mainWindow.shareButton.SetActive, true)

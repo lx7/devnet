@@ -10,27 +10,11 @@ type videoWindow struct {
 	overlay *gtk.DrawingArea
 }
 
-func (w *videoWindow) Populate(b *gtk.Builder) error {
-	obj, err := b.GetObject("video_window")
-	if err != nil {
-		return err
-	}
-	win, ok := obj.(*gtk.Window)
-	if !ok {
-		return ErrInvalidGTKObj{have: obj, want: w.Window}
-	}
-	w.Window = win
+func (w *videoWindow) Populate(b *builder) error {
+	w.Window = b.getWindow("video_window")
 	w.SetTitle("devnet Video")
 
-	obj, err = b.GetObject("screencast_overlay")
-	if err != nil {
-		return err
-	}
-	overlay, ok := obj.(*gtk.DrawingArea)
-	if !ok {
-		return ErrInvalidGTKObj{have: obj, want: w.overlay}
-	}
-	w.overlay = overlay
+	w.overlay = b.getDrawingArea("screencast_overlay")
 	w.overlay.AddEvents(4)
 	w.overlay.Connect("event", w.onDaEvent)
 

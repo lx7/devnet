@@ -11,7 +11,7 @@ type ErrInvalidGTKObj struct {
 
 func (e ErrInvalidGTKObj) Error() string {
 	return fmt.Sprintf(
-		"type (%v) does not match expected type (%v)",
+		"gtk object type (%v) does not match expected type (%v)",
 		reflect.TypeOf(e.have),
 		reflect.TypeOf(e.want),
 	)

@@ -8,51 +8,20 @@ type mainWindow struct {
 	*gtk.ApplicationWindow
 	controlCheckbox *gtk.CheckButton
 	shareButton     *gtk.ToggleButton
-	shareControls   *gtk.Box
+	waitScreen      *gtk.Box
+	channelList     *gtk.Box
+	detailsBox      *gtk.Box
 }
 
-func (w *mainWindow) Populate(b *gtk.Builder) error {
-	obj, err := b.GetObject("main_window")
-	if err != nil {
-		return err
-	}
-
-	win, ok := obj.(*gtk.ApplicationWindow)
-	if !ok {
-		return ErrInvalidGTKObj{have: obj, want: w.ApplicationWindow}
-	}
-	w.ApplicationWindow = win
+func (w *mainWindow) Populate(b *builder) error {
+	w.ApplicationWindow = b.getApplicationWindow("main_window")
 	w.SetKeepAbove(true)
 
-	obj, err = b.GetObject("control_checkbox")
-	if err != nil {
-		return err
-	}
-	chk, ok := obj.(*gtk.CheckButton)
-	if !ok {
-		return ErrInvalidGTKObj{have: obj, want: w.controlCheckbox}
-	}
-	w.controlCheckbox = chk
-
-	obj, err = b.GetObject("share_controls")
-	if err != nil {
-		return err
-	}
-	sharectl, ok := obj.(*gtk.Box)
-	if !ok {
-		return ErrInvalidGTKObj{have: obj, want: w.shareControls}
-	}
-	w.shareControls = sharectl
-
-	obj, err = b.GetObject("share_button")
-	if err != nil {
-		return err
-	}
-	btn, ok := obj.(*gtk.ToggleButton)
-	if !ok {
-		return ErrInvalidGTKObj{have: obj, want: w.shareButton}
-	}
-	w.shareButton = btn
+	w.waitScreen = b.getBox("wait_screen")
+	w.channelList = b.getBox("channel_list")
+	w.controlCheckbox = b.getCheckButton("control_checkbox")
+	w.detailsBox = b.getBox("details_box")
+	w.shareButton = b.getToggleButton("share_button")
 
 	return nil
 }
