@@ -1,6 +1,6 @@
 signaling:
   # URL of the signaling server. Use the wss:// scheme for TLS.
-  url: ws://localhost:8080/channel
+  url: wss://localhost:8443/channel
 auth:
   user: user1
   pass: test                             

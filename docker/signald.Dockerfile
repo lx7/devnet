@@ -4,6 +4,9 @@ ENV GO111MODULE=on
 
 WORKDIR /go/src/devnet
 
+COPY test/localhost-signald.crt /etc/ssl/localhost-signald.crt
+COPY test/localhost-signald.key /etc/ssl/private/localhost-signald.key
+
 COPY go.mod go.sum ./
 RUN go mod download
 

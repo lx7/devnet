@@ -36,7 +36,7 @@ func TestClientCmd_Config(t *testing.T) {
 		{
 			desc: "get signaling url from config",
 			give: "signaling.url",
-			want: "ws://localhost:8080/channel",
+			want: "wss://localhost:8443/channel",
 		},
 		{
 			desc: "get hardware encoder from config",

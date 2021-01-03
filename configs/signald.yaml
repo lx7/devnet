@@ -1,7 +1,9 @@
 signaling:
-  addr: ":8080"
+  addr: ":8443"
   wspath: "/channel"
   tls: false
+  tls_crt: /etc/ssl/DOMAIN.TLD.crt
+  tls_key: /etc/ssl/private/DOMAIN.TLD.key
 auth:
   users:
     - name: user1
@@ -18,4 +20,4 @@ channels:
 client:
   webrtc:
     iceservers:
-      - url: stun:localhost:19302
+      - url: stun:127.0.0.1:19302

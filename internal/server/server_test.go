@@ -1,6 +1,9 @@
 package server
 
 import (
+	"crypto/tls"
+	"crypto/x509"
+	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -37,6 +40,9 @@ func init() {
 		log.Fatal().Err(err).Msg("config file")
 	}
 	conf.Set("signaling.addr", "127.0.0.1:40100")
+	conf.Set("signaling.tls", "true")
+	conf.Set("signaling.tls_crt", "../../test/localhost.crt")
+	conf.Set("signaling.tls_key", "../../test/localhost.key")
 }
 
 func TestServer_Echo(t *testing.T) {
@@ -53,7 +59,7 @@ func TestServer_Echo(t *testing.T) {
 	d := wstest.NewDialer(http.HandlerFunc(s.serveWS))
 	header := make(http.Header)
 	header.Add("Authorization", "Basic dGVzdHVzZXI6dGVzdA==")
-	ws, _, err := d.Dial("ws://localhost/channel", header)
+	ws, _, err := d.Dial("ws://127.0.0.1/channel", header)
 	require.NoError(t, err)
 	defer ws.Close()
 
@@ -74,7 +80,7 @@ func TestServer_Echo(t *testing.T) {
 					Webrtc: &proto.Config_WebRTC{
 						Iceservers: []*proto.Config_WebRTC_ICEServer{
 							&proto.Config_WebRTC_ICEServer{
-								Url: "stun:localhost:19302",
+								Url: "stun:127.0.0.1:19302",
 							},
 						},
 					},
@@ -225,36 +231,36 @@ func TestServer_AuthRequest(t *testing.T) {
 	}{
 		{
 			desc:     "ws: no auth header",
-			giveURL:  "ws://127.0.0.1:40100/channel",
+			giveURL:  "wss://localhost:40100/channel",
 			giveAuth: "",
 			wantErr:  websocket.ErrBadHandshake,
 		},
 		{
 			desc:     "ws: invalid auth header",
-			giveURL:  "ws://127.0.0.1:40100/channel",
+			giveURL:  "wss://localhost:40100/channel",
 			giveAuth: "Basic kDgmmNnabzatzZmvAV",
 			wantErr:  websocket.ErrBadHandshake,
 		},
 		{
 			desc:     "ws: correct auth header",
-			giveURL:  "ws://127.0.0.1:40100/channel",
+			giveURL:  "wss://localhost:40100/channel",
 			giveAuth: "Basic dGVzdHVzZXI6dGVzdA==",
 		},
 		{
 			desc:     "plain: no auth header",
-			giveURL:  "http://127.0.0.1:40100/",
+			giveURL:  "https://localhost:40100/",
 			giveAuth: "",
 			wantCode: 401,
 		},
 		{
 			desc:     "plain: invalid auth header",
-			giveURL:  "http://127.0.0.1:40100/",
+			giveURL:  "https://localhost:40100/",
 			giveAuth: "Basic kDgmmNnabzatzZmvAV",
 			wantCode: 401,
 		},
 		{
 			desc:     "plain: correct auth header",
-			giveURL:  "http://127.0.0.1:40100/",
+			giveURL:  "https://localhost:40100/",
 			giveAuth: "Basic dGVzdHVzZXI6dGVzdA==",
 			wantCode: 200,
 		},
@@ -268,14 +274,19 @@ func TestServer_AuthRequest(t *testing.T) {
 				header.Add("Authorization", tt.giveAuth)
 			}
 
-			if strings.HasPrefix(tt.giveURL, "ws://") {
-				ws, _, err := websocket.DefaultDialer.Dial(tt.giveURL, header)
+			if strings.HasPrefix(tt.giveURL, "wss://") {
+				dialer := &websocket.Dialer{
+					TLSClientConfig: configWithFakeCertPool(),
+				}
+				ws, _, err := dialer.Dial(tt.giveURL, header)
 				require.Equal(t, tt.wantErr, err)
 				if ws != nil {
 					ws.Close()
 				}
 			} else {
-				client := &http.Client{}
+				tr := &http.Transport{TLSClientConfig: configWithFakeCertPool()}
+				client := &http.Client{Transport: tr}
+
 				req, err := http.NewRequest("GET", tt.giveURL, nil)
 				require.NoError(t, err)
 
@@ -288,4 +299,22 @@ func TestServer_AuthRequest(t *testing.T) {
 	}
 	s.Shutdown()
 	wg.Wait()
+}
+
+func configWithFakeCertPool() *tls.Config {
+	rootCAs, _ := x509.SystemCertPool()
+	if rootCAs == nil {
+		rootCAs = x509.NewCertPool()
+	}
+
+	certs, err := ioutil.ReadFile(conf.GetString("signaling.tls_crt"))
+	if err != nil {
+		log.Fatal().Err(err).Msg("failed to append test cert to ca pool")
+	}
+
+	if ok := rootCAs.AppendCertsFromPEM(certs); !ok {
+		log.Fatal().Msg("no certs appended")
+	}
+
+	return &tls.Config{RootCAs: rootCAs}
 }

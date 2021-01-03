@@ -28,18 +28,18 @@ func New(conf *viper.Viper) *Server {
 	auth.Configure(conf.Sub("auth"))
 
 	s := &Server{
-		&http.Server{
+		Server: &http.Server{
 			Addr: conf.GetString("signaling.addr"),
 		},
-		conf,
-		websocket.Upgrader{
+		conf: conf,
+		upgrader: websocket.Upgrader{
 			ReadBufferSize:  0,
 			WriteBufferSize: 0,
 			CheckOrigin: func(r *http.Request) bool {
 				return true
 			},
 		},
-		NewSwitch(),
+		sw: NewSwitch(),
 	}
 	return s
 }
@@ -73,8 +73,16 @@ func (s *Server) Serve() error {
 	http.Handle("/", c.Then(http.HandlerFunc(s.serveOK)))
 	http.Handle(wspath, c.Then(http.HandlerFunc(s.serveWS)))
 
-	if err := s.Server.ListenAndServe(); err != http.ErrServerClosed {
-		return err
+	if s.conf.GetBool("signaling.tls") {
+		crt := s.conf.GetString("signaling.tls_crt")
+		key := s.conf.GetString("signaling.tls_key")
+		if err := s.Server.ListenAndServeTLS(crt, key); err != http.ErrServerClosed {
+			return err
+		}
+	} else {
+		if err := s.Server.ListenAndServe(); err != http.ErrServerClosed {
+			return err
+		}
 	}
 	wg.Wait()
 	return nil
