@@ -279,9 +279,6 @@ Author: Alexander Koeck
                         <property name="position">1</property>
                       </packing>
                     </child>
-                    <style>
-                      <class name="view"/>
-                    </style>
                   </object>
                   <packing>
                     <property name="expand">False</property>
@@ -449,18 +446,6 @@ Author: Alexander Koeck
             <property name="fill">True</property>
             <property name="position">0</property>
           </packing>
-        </child>
-      </object>
-    </child>
-    <child type="titlebar">
-      <object class="GtkHeaderBar">
-        <property name="visible">True</property>
-        <property name="can-focus">False</property>
-        <property name="border-width">1</property>
-        <property name="has-subtitle">False</property>
-        <property name="show-close-button">True</property>
-        <child>
-          <placeholder/>
         </child>
       </object>
     </child>
