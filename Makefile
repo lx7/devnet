@@ -48,4 +48,4 @@ deps:
 	go get github.com/gotk3/gotk3/gtk
 	go get github.com/mjibson/esc
 
-.PHONY: run release $(PLATFORMS) cover clean deps
+.PHONY: test release $(PLATFORMS) cover clean deps

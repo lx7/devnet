@@ -4,12 +4,13 @@ package proto;
 option go_package = "github.com/lx7/devnet/proto";
 
 message Config {
-    message WebRTC {
-        message ICEServer {
-            string url = 1;
-        }
-        repeated ICEServer iceservers = 1;
+  message WebRTC {
+    message ICEServer {
+      string url = 1;
     }
-    WebRTC webrtc = 1;
+    repeated ICEServer iceservers = 1;
+  }
+  WebRTC webrtc = 1;
 }
 
+// vim: expandtab:ts=2:sw=2

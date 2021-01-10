@@ -3,7 +3,7 @@ package proto
 import (
 	"testing"
 
-	"github.com/pion/webrtc/v2"
+	"github.com/pion/webrtc/v3"
 	"github.com/stretchr/testify/assert"
 )
 

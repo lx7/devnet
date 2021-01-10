@@ -1,0 +1,58 @@
+syntax = "proto3";
+package proto;
+
+option go_package = "github.com/lx7/devnet/proto";
+    
+
+message Control {
+  uint32 time = 1; 
+
+  message Mouse {
+    uint32 x = 1; 
+    uint32 y = 2; 
+  
+    enum Button {
+      NONE        = 0;
+      LEFT        = 1;
+      MIDDLE      = 2;
+      RIGHT       = 3;
+
+      WHEEL_UP    = 4;
+      WHEEL_DOWN  = 5;
+      WHEEL_LEFT  = 6;
+      WHEEL_RIGHT = 7;
+    }
+    Button button = 3; 
+    
+    enum Direction {
+      UNDEF   = 0;
+      PRESS   = 1;
+      RELEASE = 2;
+      STEP    = 3;
+    }
+    Direction direction = 4;
+  }
+  Mouse mouse = 2;
+  
+  message Key {
+    uint32 code = 1; 
+
+    message Modifiers {
+      bool shift    = 1;
+      bool control  = 2;
+      bool alt      = 3;
+      bool meta     = 4;
+    }
+    Modifiers modifiers = 2;
+    
+    enum Direction {
+      UNDEF   = 0;
+      PRESS   = 1;
+      RELEASE = 2;
+    }
+    Direction direction = 3;
+  }
+  Key key = 3;
+}
+
+// vim: expandtab:ts=2:sw=2

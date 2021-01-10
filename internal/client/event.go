@@ -23,7 +23,7 @@ type EventSCInboundStart struct{}
 type EventSCInboundEnd struct{}
 
 type EventRCon struct {
-	Data proto.RCon
+	Data *proto.Control
 }
 
 func (s *Session) Handle(f interface{}, args ...interface{}) error {

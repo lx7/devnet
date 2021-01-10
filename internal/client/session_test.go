@@ -57,7 +57,6 @@ func TestSession_Flow(t *testing.T) {
 
 		// configure
 		conf := &proto.Frame{
-			Dst: "user1",
 			Payload: &proto.Frame_Config{Config: &proto.Config{
 				Webrtc: &proto.Config_WebRTC{
 					Iceservers: []*proto.Config_WebRTC_ICEServer{
@@ -70,22 +69,36 @@ func TestSession_Flow(t *testing.T) {
 		}
 		signal1.recv <- conf
 		signal2.recv <- conf
-		time.Sleep(10 * time.Millisecond)
+		time.Sleep(100 * time.Millisecond)
 
 		// test webrtc connection
 		err = s1.Connect("user2")
 		require.NoError(t, err)
+		require.IsType(t, EventSessionStart{}, <-s2.Events())
+		time.Sleep(100 * time.Millisecond)
 
-		time.Sleep(10 * time.Millisecond)
+		// send remote control message
+		give := &proto.Control{
+			Time: 100,
+		}
 
+		s1.RCon(give)
+
+		select {
+		case have := <-s2.Events():
+			assert.IsType(t, EventRCon{}, have)
+		case <-time.After(1 * time.Second):
+			t.Error("receive timeout")
+		}
+
+		// start video stream
 		s1.StartStream(LocalScreen)
 
-		time.Sleep(5 * time.Second)
+		time.Sleep(2 * time.Second)
 
-		// TODO: investigate io errors after close
-		//s1.Close()
-		//s2.Close()
-		time.Sleep(50 * time.Millisecond)
+		s1.Close()
+		s2.Close()
+		time.Sleep(10 * time.Millisecond)
 		gtk.MainQuit()
 	}()
 

@@ -33,17 +33,8 @@ func (s SignalState) String() string {
 type SignalStateHandler func(SignalState)
 
 type SignalSendReceiver interface {
-	SignalSender
-	SignalReceiver
-}
-
-type SignalSender interface {
-	Send(*proto.Frame) error
-	HandleStateChange(SignalStateHandler)
-}
-
-type SignalReceiver interface {
-	Receive() <-chan *proto.Frame
+	proto.FrameSender
+	proto.FrameReceiver
 	HandleStateChange(SignalStateHandler)
 }
 

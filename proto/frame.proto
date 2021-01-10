@@ -5,17 +5,19 @@ option go_package = "github.com/lx7/devnet/proto";
 
 import "proto/config.proto";
 import "proto/sdp.proto";
-import "proto/rcon.proto";
+import "proto/ice.proto";
+import "proto/control.proto";
 
 message Frame {
-    string src = 1;
-    string dst = 2;
+  string src = 1;
+  string dst = 2;
     
-    oneof payload {
-        Config config = 3;
-        SDP sdp = 4;
-        RCon rcon = 5;
-    }
+  oneof payload {
+    Config  config  = 3;
+    ICE     ice     = 4;
+    SDP     sdp     = 5;
+    Control control = 6;
+  }
 }
 
-
+// vim: expandtab:ts=2:sw=2

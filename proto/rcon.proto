@@ -1,8 +1,0 @@
-syntax = "proto3";
-package proto;
-
-option go_package = "github.com/lx7/devnet/proto";
-
-message RCon {
-}
-
