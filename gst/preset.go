@@ -5,15 +5,13 @@ import (
 	"strings"
 )
 
-type codecKind string
-
-// TODO: switch constants to int?
-
 const (
-	Audio codecKind = "audio"
-	Video codecKind = "video"
+	MimeTypeVideoVP8  = "video/vp8"
+	MimeTypeVideoH264 = "video/h264"
+	MimeTypeAudioOpus = "audio/opus"
 )
 
+// TODO: switch constants to int?
 type codecName string
 
 const (
@@ -39,20 +37,13 @@ const (
 	Voice  sourceType = "voice"
 )
 
-const (
-	ClockRateVideo float32 = 90000
-	ClockRateAudio float32 = 48000
-)
-
 type Preset struct {
-	Kind        codecKind
-	Codec       codecName
-	HW          hwCodec
-	Source      sourceType
-	Local       string
-	Remote      string
-	Clock       float32
-	PayloadType uint8
+	MimeType string
+	Codec    codecName
+	HW       hwCodec
+	Source   sourceType
+	Local    string
+	Remote   string
 }
 
 func NewHardwareCodec(s string) hwCodec {

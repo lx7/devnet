@@ -13,8 +13,7 @@ services:
       - "./configs/docker/signald.yaml:/etc/devnet/signald.yaml"
     ports:
       - "8080:8080"
-    expose:
-      - "8080"
+      - "8443:8443"
 
   client:
     hostname: client

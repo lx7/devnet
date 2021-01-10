@@ -9,10 +9,11 @@ import "C"
 import (
 	"errors"
 	"sync"
+	"time"
 	"unsafe"
 
 	"github.com/gotk3/gotk3/gtk"
-	"github.com/pion/webrtc/v2/pkg/media"
+	"github.com/pion/webrtc/v3/pkg/media"
 	"github.com/rs/zerolog/log"
 )
 
@@ -22,14 +23,13 @@ type Pipeline struct {
 	id      int
 	el      *C.GstElement
 	handler SampleHandlerFunc
-	clock   float32
 }
 
-func NewPipeline(desc string, clock float32) (*Pipeline, error) {
+func NewPipeline(desc string) (*Pipeline, error) {
 	descU := C.CString(desc)
 	defer C.free(unsafe.Pointer(descU))
 
-	p := &Pipeline{clock: clock}
+	p := &Pipeline{}
 	p.id = pipes.register(p)
 	p.el = C.gs_new_pipeline(descU, C.int(p.id))
 	if p.el == nil {
@@ -88,8 +88,8 @@ func go_sample_cb(ref C.int, buf unsafe.Pointer, bufl C.int, dur C.int) {
 	}
 
 	p.handler(media.Sample{
-		Data:    C.GoBytes(buf, bufl),
-		Samples: uint32(p.clock * float32(dur) / 1000000000),
+		Data:     C.GoBytes(buf, bufl),
+		Duration: time.Duration(dur),
 	})
 	C.free(buf)
 }

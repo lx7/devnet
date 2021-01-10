@@ -11,7 +11,7 @@ import (
 	"github.com/gotk3/gotk3/gtk"
 	"github.com/lx7/devnet/gst"
 	"github.com/lx7/devnet/internal/client"
-	"github.com/pion/webrtc/v2"
+	"github.com/pion/webrtc/v3"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"github.com/stretchr/testify/assert"
@@ -139,7 +139,7 @@ func (s *fakeRemoteStream) SetOverlay(o gtk.IWidget) error {
 	return nil
 }
 
-func (s *fakeRemoteStream) Receive(*webrtc.Track) {
+func (s *fakeRemoteStream) Receive(*webrtc.TrackRemote) {
 }
 
 func (s *fakeRemoteStream) Close() {
@@ -153,7 +153,7 @@ type fakeSession struct {
 }
 
 func newFakeSession() *fakeSession {
-	fakeRemotePipe, _ := gst.NewPipeline("videotestsrc ! autovideosink", 90000)
+	fakeRemotePipe, _ := gst.NewPipeline("videotestsrc ! autovideosink")
 	s := &fakeSession{
 		screen: &fakeLocalStream{},
 		screenIn: &fakeRemoteStream{

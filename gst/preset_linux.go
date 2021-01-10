@@ -2,15 +2,11 @@
 
 package gst
 
-import (
-	"github.com/pion/webrtc/v2"
-)
-
 var screen_H264_SW = Preset{
-	Kind:   Video,
-	Codec:  H264,
-	HW:     NoHardware,
-	Source: Screen,
+	MimeType: MimeTypeVideoH264,
+	Codec:    H264,
+	HW:       NoHardware,
+	Source:   Screen,
 	Local: `
 			ximagesrc use-damage=false 
 			! video/x-raw,framerate=25/1
@@ -33,15 +29,13 @@ var screen_H264_SW = Preset{
 			! videoconvert 
 			! autovideosink sync=false
 			`,
-	Clock:       ClockRateVideo,
-	PayloadType: webrtc.DefaultPayloadTypeH264,
 }
 
 var screen_H264_VAAPI = Preset{
-	Kind:   Video,
-	Codec:  H264,
-	HW:     VAAPI,
-	Source: Screen,
+	MimeType: MimeTypeVideoH264,
+	Codec:    H264,
+	HW:       VAAPI,
+	Source:   Screen,
 	Local: `
 			ximagesrc use-damage=false 
 			! video/x-raw,framerate=25/1
@@ -66,15 +60,13 @@ var screen_H264_VAAPI = Preset{
 			! vaapipostproc
 			! vaapisink sync=false
 			`,
-	Clock:       ClockRateVideo,
-	PayloadType: webrtc.DefaultPayloadTypeH264,
 }
 
 var screen_H264_NVCODEC = Preset{
-	Kind:   Video,
-	Codec:  H264,
-	HW:     NVCODEC,
-	Source: Screen,
+	MimeType: MimeTypeVideoH264,
+	Codec:    H264,
+	HW:       NVCODEC,
+	Source:   Screen,
 	Local: `
 			ximagesrc use-damage=false 
 			! video/x-raw,framerate=25/1
@@ -92,15 +84,13 @@ var screen_H264_NVCODEC = Preset{
 			! decodebin 
 			! glimagesink sync=false
 			`,
-	Clock:       ClockRateVideo,
-	PayloadType: webrtc.DefaultPayloadTypeH264,
 }
 
 var voice_OPUS_SW = Preset{
-	Kind:   Audio,
-	Codec:  Opus,
-	HW:     NoHardware,
-	Source: Voice,
+	MimeType: MimeTypeAudioOpus,
+	Codec:    Opus,
+	HW:       NoHardware,
+	Source:   Voice,
 	Local: `
 			autoaudiosrc
 			! opusenc
@@ -114,8 +104,6 @@ var voice_OPUS_SW = Preset{
 			! queue
 			! autoaudiosink
 			`,
-	Clock:       ClockRateVideo,
-	PayloadType: webrtc.DefaultPayloadTypeOpus,
 }
 
 // presets holds the list of presets that are enabled for this platform

@@ -4,9 +4,6 @@ ENV GO111MODULE=on
 
 WORKDIR /go/src/devnet
 
-COPY test/localhost-signald.crt /etc/ssl/localhost-signald.crt
-COPY test/localhost-signald.key /etc/ssl/private/localhost-signald.key
-
 COPY go.mod go.sum ./
 RUN go mod download
 
@@ -21,6 +18,9 @@ RUN apk --no-cache add ca-certificates
 COPY --from=0 /signald /usr/local/bin/signald
 
 COPY configs/docker/signald.yaml /etc/devnet/signald.yaml
+COPY test/localhost-signald.crt /etc/ssl/localhost-signald.crt
+COPY test/localhost-signald.key /etc/ssl/private/localhost-signald.key
+
 
 CMD ["/usr/local/bin/signald"]
 

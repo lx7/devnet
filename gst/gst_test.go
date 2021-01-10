@@ -10,7 +10,7 @@ import (
 
 	"github.com/gotk3/gotk3/glib"
 	"github.com/gotk3/gotk3/gtk"
-	"github.com/pion/webrtc/v2/pkg/media"
+	"github.com/pion/webrtc/v3/pkg/media"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"github.com/stretchr/testify/assert"
@@ -52,7 +52,7 @@ func TestGStreamer_Processing(t *testing.T) {
 					videotestsrc 
 					! videoconvert 
 					! autovideosink
-					`, 90000)
+					`)
 				require.NoError(t, err)
 				p.Start()
 				time.Sleep(1 * time.Second)
@@ -70,7 +70,7 @@ func TestGStreamer_Processing(t *testing.T) {
 					videotestsrc 
 					! videoconvert 
 					! autovideosink
-					`, 90000)
+					`)
 				require.NoError(t, err)
 				err = p.SetOverlayHandle(da)
 				assert.NoError(t, err)
@@ -86,7 +86,7 @@ func TestGStreamer_Processing(t *testing.T) {
 					videotestsrc 
 					! videoconvert 
 					! autovideosink
-					`, 90000)
+					`)
 				require.NoError(t, err)
 				err = p.SetOverlayHandle(nil)
 				assert.Error(t, err)
@@ -106,15 +106,15 @@ func TestGStreamer_Processing(t *testing.T) {
 				src, err := NewPipeline(`
 					audiotestsrc 
 					! queue 
-					! appsink name=sink caps="`+caps+`"
-					`, 44100)
+					! appsink name=sink caps="` + caps + `"
+					`)
 				require.NoError(t, err)
 
 				sink, err := NewPipeline(`
-					appsrc name=src caps="`+caps+`" is-live=true format=3 
+					appsrc name=src caps="` + caps + `" is-live=true format=3 
 					! queue 
 					! autoaudiosink
-					`, 44100)
+					`)
 				require.NoError(t, err)
 
 				src.HandleSample(func(s media.Sample) {

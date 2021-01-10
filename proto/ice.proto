@@ -1,0 +1,13 @@
+syntax = "proto3";
+package proto;
+
+option go_package = "github.com/lx7/devnet/proto";
+
+message ICE {
+  string candidate = 1;
+  string sdp_mid = 2;
+  uint32 sdp_m_line_index = 3;
+  string username_fragment = 4;
+}
+
+// vim: expandtab:ts=2:sw=2

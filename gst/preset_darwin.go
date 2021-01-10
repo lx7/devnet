@@ -2,15 +2,11 @@
 
 package gst
 
-import (
-	"github.com/pion/webrtc/v2"
-)
-
 var screen_H264_SW = Preset{
-	Kind:   Video,
-	Codec:  H264,
-	HW:     NoHardware,
-	Source: Screen,
+	MimeType: MimeTypeVideoH264,
+	Codec:    H264,
+	HW:       NoHardware,
+	Source:   Screen,
 	Local: `
 			avfvideosrc capture-screen=true 
 			! video/x-raw,framerate=25/1
@@ -33,15 +29,13 @@ var screen_H264_SW = Preset{
 			! videoconvert 
 			! autovideosink sync=false
 			`,
-	Clock:       ClockRateVideo,
-	PayloadType: webrtc.DefaultPayloadTypeH264,
 }
 
 var screen_H264_OSXVT = Preset{
-	Kind:   Video,
-	Codec:  H264,
-	HW:     OSXVT,
-	Source: Screen,
+	MimeType: MimeTypeVideoH264,
+	Codec:    H264,
+	HW:       OSXVT,
+	Source:   Screen,
 	Local: `
 			avfvideosrc capture-screen=true 
 			! video/x-raw,framerate=25/1
@@ -61,12 +55,10 @@ var screen_H264_OSXVT = Preset{
 			! videoconvert 
 			! autovideosink sync=false
 			`,
-	Clock:       ClockRateVideo,
-	PayloadType: webrtc.DefaultPayloadTypeH264,
 }
 
 var voice_OPUS_SW = Preset{
-	Kind:       Audio,
+	MimeType:   MimeTypeAudioOpus,
 	Codec:      Opus,
 	HW:         NoHardware,
 	SourceType: Voice,
@@ -82,8 +74,6 @@ var voice_OPUS_SW = Preset{
 			! decodebin 
 			! autoaudiosink
 			`,
-	Clock:       ClockRateVideo,
-	PayloadType: webrtc.DefaultPayloadTypeOpus,
 }
 
 // presets holds the list of presets that are enabled for this platform

@@ -8,7 +8,7 @@ import (
 
 	"github.com/gotk3/gotk3/gtk"
 	"github.com/lx7/devnet/internal/testutil"
-	"github.com/pion/webrtc/v2/pkg/media"
+	"github.com/pion/webrtc/v3/pkg/media"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"github.com/stretchr/testify/assert"
@@ -68,10 +68,10 @@ func TestPreset_Permutations(t *testing.T) {
 	go func() {
 		time.Sleep(100 * time.Millisecond)
 		for _, p := range perms {
-			local, err := NewPipeline(p.p1.Local, p.p1.Clock)
+			local, err := NewPipeline(p.p1.Local)
 			require.NoError(t, err)
 
-			remote, err := NewPipeline(p.p2.Remote, p.p2.Clock)
+			remote, err := NewPipeline(p.p2.Remote)
 			require.NoError(t, err)
 
 			fmt.Printf("... test stream: %s -> %s\n", p.p1.String(), p.p2.String())
