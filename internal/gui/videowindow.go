@@ -10,11 +10,11 @@ type videoWindow struct {
 	overlay *gtk.DrawingArea
 }
 
-func (w *videoWindow) Populate(b *builder) error {
-	w.Window = b.getWindow("video_window")
+func (w *videoWindow) Populate(b *Builder) error {
+	w.Window = b.GetWindow("video_window")
 	w.SetTitle("devnet Video")
 
-	w.overlay = b.getDrawingArea("screencast_overlay")
+	w.overlay = b.GetDrawingArea("screencast_overlay")
 	w.overlay.AddEvents(4)
 	w.overlay.Connect("event", w.onDaEvent)
 

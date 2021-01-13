@@ -114,7 +114,7 @@ func (g *GUI) onStartup() {
 		log.Fatal().Err(err).Msg("failed to load layout")
 	}
 
-	builder, err := builderNewFromString(ui)
+	builder, err := BuilderNewFromString(ui)
 	if err != nil {
 		log.Fatal().Err(err).Msg("failed to read layout")
 	}

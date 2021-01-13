@@ -29,41 +29,41 @@ func TestBuilder_GetObj(t *testing.T) {
 	tests := []struct {
 		give string
 		want interface{}
-		f    func(*builder, string) interface{}
+		f    func(*Builder, string) interface{}
 	}{
 		{
 			give: "main_window",
 			want: &gtk.ApplicationWindow{},
-			f: func(b *builder, id string) interface{} {
-				return b.getApplicationWindow(id)
+			f: func(b *Builder, id string) interface{} {
+				return b.GetApplicationWindow(id)
 			},
 		},
 		{
 			give: "video_window",
 			want: &gtk.Window{},
-			f: func(b *builder, id string) interface{} {
-				return b.getWindow(id)
+			f: func(b *Builder, id string) interface{} {
+				return b.GetWindow(id)
 			},
 		},
 		{
 			give: "wait_screen",
 			want: &gtk.Box{},
-			f: func(b *builder, id string) interface{} {
-				return b.getBox(id)
+			f: func(b *Builder, id string) interface{} {
+				return b.GetBox(id)
 			},
 		},
 		{
 			give: "screencast_overlay",
 			want: &gtk.DrawingArea{},
-			f: func(b *builder, id string) interface{} {
-				return b.getDrawingArea(id)
+			f: func(b *Builder, id string) interface{} {
+				return b.GetDrawingArea(id)
 			},
 		},
 		{
 			give: "share_button",
 			want: &gtk.ToggleButton{},
-			f: func(b *builder, id string) interface{} {
-				return b.getToggleButton(id)
+			f: func(b *Builder, id string) interface{} {
+				return b.GetToggleButton(id)
 			},
 		},
 	}
@@ -73,7 +73,7 @@ func TestBuilder_GetObj(t *testing.T) {
 		log.Fatal().Err(err).Msg("failed to load layout")
 	}
 
-	b, err := builderNewFromString(ui)
+	b, err := BuilderNewFromString(ui)
 	if err != nil {
 		log.Fatal().Err(err).Msg("failed to read layout")
 	}
