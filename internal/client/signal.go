@@ -57,10 +57,9 @@ const (
 	handshakeTimeout = 20 * time.Second
 	connCloseTimeout = 500 * time.Millisecond
 
-	readTimeout       = 10 * time.Second
-	writeTimeout      = 10 * time.Second
 	pingInterval      = 15 * time.Second
 	pongTimeout       = 20 * time.Second
+	writeTimeout      = 20 * time.Second
 	reconnectInterval = 10 * time.Second
 	maxMessageSize    = 512
 	verifyTLS         = true
@@ -195,6 +194,10 @@ func (s *Signal) readPump() {
 	s.RLock()
 	s.conn.SetReadLimit(maxMessageSize)
 	s.conn.SetReadDeadline(time.Now().Add(pongTimeout))
+	s.conn.SetPongHandler(func(string) error {
+		s.conn.SetReadDeadline(time.Now().Add(pongTimeout))
+		return nil
+	})
 	s.RUnlock()
 	for {
 		s.RLock()
