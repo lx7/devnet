@@ -40,7 +40,9 @@ func TestGUI_Session(t *testing.T) {
 
 		// define expectations
 		s.On("Events").Return()
+		s.On("SetOverlay", client.RemoteCamera, mock.Anything).Return()
 		s.On("SetOverlay", client.RemoteScreen, mock.Anything).Return()
+		s.On("SetOverlay", client.LocalCamera, mock.Anything).Return()
 		//s.On("StartStream", client.LocalScreen).Return()
 		//s.On("Connect").Return()
 
@@ -49,10 +51,16 @@ func TestGUI_Session(t *testing.T) {
 		const interval = 1000 * time.Millisecond
 		time.Sleep(1 * time.Second)
 
-		s.testStartInbound()
+		s.testStartRemoteCam()
+		time.Sleep(1 * interval)
+
+		s.testStopRemoteCam()
 		time.Sleep(interval)
 
-		s.testStopInbound()
+		s.testStartRemoteScreen()
+		time.Sleep(1 * interval)
+
+		s.testStopRemoteScreen()
 		time.Sleep(interval)
 
 		s.events <- client.EventSessionEnd{}
@@ -78,6 +86,7 @@ func TestGUI_Interface(t *testing.T) {
 	s.On("Events").Return()
 	s.On("SetOverlay", mock.Anything, mock.Anything).Return()
 	s.On("StartStream", mock.Anything).Return()
+	s.On("StopStream", mock.Anything).Return()
 
 	gui, err := New("test.devnet", s)
 	assert.NoError(t, err, "constructor should not fail")
@@ -108,9 +117,6 @@ func TestGUI_Interface(t *testing.T) {
 		glib.IdleAdd(gui.mainWindow.shareButton.SetActive, true)
 		time.Sleep(interval)
 
-		glib.IdleAdd(gui.mainWindow.shareButton.SetActive, true)
-		time.Sleep(interval)
-
 		glib.IdleAdd(gui.mainWindow.shareButton.SetActive, false)
 		time.Sleep(interval)
 
@@ -122,9 +128,20 @@ func TestGUI_Interface(t *testing.T) {
 }
 
 type fakeLocalStream struct {
+	pipeline *gst.Pipeline
+}
+
+func (s *fakeLocalStream) SetOverlay(o gtk.IWidget) error {
+	s.pipeline.SetOverlayHandle(o)
+	return nil
 }
 
 func (s *fakeLocalStream) Send() {
+	s.pipeline.Start()
+}
+
+func (s *fakeLocalStream) Stop() {
+	s.pipeline.Stop()
 }
 
 func (s *fakeLocalStream) Close() {
@@ -147,20 +164,36 @@ func (s *fakeRemoteStream) Close() {
 
 type fakeSession struct {
 	mock.Mock
-	screen   *fakeLocalStream
-	screenIn *fakeRemoteStream
-	events   chan client.Event
+	streams []client.Stream
+	events  chan client.Event
 }
 
 func newFakeSession() *fakeSession {
-	fakeRemotePipe, _ := gst.NewPipeline("videotestsrc ! autovideosink")
 	s := &fakeSession{
-		screen: &fakeLocalStream{},
-		screenIn: &fakeRemoteStream{
-			pipeline: fakeRemotePipe,
-		},
-		events: make(chan client.Event, 5),
+		streams: make([]client.Stream, 10),
+		events:  make(chan client.Event, 5),
 	}
+
+	pr1, _ := gst.NewPipeline("videotestsrc ! autovideosink")
+	pr2, _ := gst.NewPipeline("videotestsrc pattern=snow ! autovideosink")
+
+	s.streams[client.RemoteScreen] = &fakeRemoteStream{
+		pipeline: pr1,
+	}
+	s.streams[client.RemoteCamera] = &fakeRemoteStream{
+		pipeline: pr2,
+	}
+
+	pl1, _ := gst.NewPipeline("videotestsrc ! autovideosink")
+	pl2, _ := gst.NewPipeline("videotestsrc pattern=ball ! autovideosink")
+
+	s.streams[client.LocalScreen] = &fakeLocalStream{
+		pipeline: pl1,
+	}
+	s.streams[client.LocalCamera] = &fakeLocalStream{
+		pipeline: pl2,
+	}
+
 	return s
 }
 
@@ -174,22 +207,45 @@ func (s *fakeSession) Connect(peer string) error {
 	return nil
 }
 
-func (s *fakeSession) SetOverlay(id int, o *gtk.DrawingArea) {
+func (s *fakeSession) SetOverlay(id int, o *gtk.GLArea) {
 	s.Called(id, o)
-	s.screenIn.pipeline.SetOverlayHandle(o)
+	s.streams[id].SetOverlay(o)
 }
 
-func (s *fakeSession) StartStream(id int) {
-	s.Called(id)
-	s.screen.Send()
+func (s *fakeSession) StartStream(id int) error {
+	//s.Called(id)
+	stream, _ := s.streams[id].(client.StreamSender)
+	stream.Send()
+	return nil
 }
 
-func (s *fakeSession) testStartInbound() {
-	s.screenIn.pipeline.Start()
+func (s *fakeSession) StopStream(id int) error {
+	//s.Called(id)
+	stream, _ := s.streams[id].(client.StreamSender)
+	stream.Stop()
+	return nil
+}
+
+func (s *fakeSession) testStartRemoteCam() {
+	stream, _ := s.streams[client.RemoteCamera].(*fakeRemoteStream)
+	stream.pipeline.Start()
+	s.events <- client.EventCameraInboundStart{}
+}
+
+func (s *fakeSession) testStopRemoteCam() {
+	stream, _ := s.streams[client.RemoteCamera].(*fakeRemoteStream)
+	stream.pipeline.Stop()
+	s.events <- client.EventCameraInboundEnd{}
+}
+
+func (s *fakeSession) testStartRemoteScreen() {
+	stream, _ := s.streams[client.RemoteScreen].(*fakeRemoteStream)
+	stream.pipeline.Start()
 	s.events <- client.EventSCInboundStart{}
 }
 
-func (s *fakeSession) testStopInbound() {
-	s.screenIn.pipeline.Stop()
+func (s *fakeSession) testStopRemoteScreen() {
+	stream, _ := s.streams[client.RemoteScreen].(*fakeRemoteStream)
+	stream.pipeline.Stop()
 	s.events <- client.EventSCInboundEnd{}
 }

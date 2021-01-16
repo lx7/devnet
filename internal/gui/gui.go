@@ -13,7 +13,7 @@ import (
 )
 
 const (
-	layoutPath = "/static/main.ui"
+	layoutPath = "/static/devnet.ui"
 	stylePath  = "/static/gtk.css"
 )
 
@@ -68,6 +68,8 @@ func (g *GUI) Run() int {
 				g.onSessionEvent(e)
 			case <-g.ready:
 				g.session.SetOverlay(client.RemoteScreen, g.videoWindow.overlay)
+				g.session.SetOverlay(client.RemoteCamera, g.mainWindow.remoteCam)
+				g.session.SetOverlay(client.LocalCamera, g.mainWindow.localCam)
 			case <-done:
 				log.Info().Msg("gui client event loop done")
 				return
@@ -99,6 +101,8 @@ func (g *GUI) onSessionEvent(e client.Event) {
 		execOnMain(func() { g.mainWindow.detailsBox.Show() })
 	case client.EventSessionEnd:
 		execOnMain(func() { g.mainWindow.detailsBox.Hide() })
+	case client.EventCameraInboundStart:
+	case client.EventCameraInboundEnd:
 	case client.EventSCInboundStart:
 		execOnMain(func() { g.videoWindow.Show() })
 	case client.EventSCInboundEnd:
@@ -137,10 +141,11 @@ func (g *GUI) onStartup() {
 		gtk.STYLE_PROVIDER_PRIORITY_USER)
 
 	signals := map[string]interface{}{
-		"main_window_destroy": g.onDestroy,
-		"share_button_toggle": g.onShareButtonToggle,
-		"test_call_user1":     g.onCallUser1,
-		"test_call_user2":     g.onCallUser2,
+		"main_window_destroy":  g.onDestroy,
+		"share_button_toggle":  g.onShareButtonToggle,
+		"camera_button_toggle": g.onCameraButtonToggle,
+		"test_call_user1":      g.onCallUser1,
+		"test_call_user2":      g.onCallUser2,
 	}
 	builder.ConnectSignals(signals)
 
@@ -153,12 +158,13 @@ func (g *GUI) onStartup() {
 		log.Fatal().Err(err).Msg("populate video window")
 	}
 	g.AddWindow(g.videoWindow)
-
 }
 
 func (g *GUI) onActivate() {
 	log.Info().Msg("application activated")
 	g.mainWindow.Show()
+	g.mainWindow.detailsBox.Show()
+	//g.mainWindow.detailsBox.Hide()
 	g.videoWindow.Show()
 	g.videoWindow.Hide()
 	g.ready <- true
@@ -173,7 +179,7 @@ func (g *GUI) onDestroy() {
 }
 
 func (g *GUI) onCallUser1() {
-	g.session.Connect("user1")
+	g.session.Connect("omi")
 }
 
 func (g *GUI) onCallUser2() {
@@ -183,10 +189,16 @@ func (g *GUI) onCallUser2() {
 func (g *GUI) onShareButtonToggle(b *gtk.ToggleButton) {
 	if b.GetActive() {
 		g.session.StartStream(client.LocalScreen)
-		g.mainWindow.controlCheckbox.SetSensitive(true)
 	} else {
-		//g.session.Screen().Stop()
-		g.mainWindow.controlCheckbox.SetSensitive(false)
+		g.session.StopStream(client.LocalScreen)
+	}
+}
+
+func (g *GUI) onCameraButtonToggle(b *gtk.ToggleButton) {
+	if b.GetActive() {
+		g.session.StartStream(client.LocalCamera)
+	} else {
+		g.session.StopStream(client.LocalCamera)
 	}
 }
 

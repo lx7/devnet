@@ -57,6 +57,14 @@ func (b *Builder) GetBox(id string) *gtk.Box {
 	return r
 }
 
+func (b *Builder) GetGLArea(id string) *gtk.GLArea {
+	r, ok := b.GetObject(id).(*gtk.GLArea)
+	if !ok {
+		log.Fatal().Str("object_id", id).Msg("gtk obj type mismatch")
+	}
+	return r
+}
+
 func (b *Builder) GetDrawingArea(id string) *gtk.DrawingArea {
 	r, ok := b.GetObject(id).(*gtk.DrawingArea)
 	if !ok {

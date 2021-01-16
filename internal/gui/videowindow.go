@@ -7,21 +7,21 @@ import (
 
 type videoWindow struct {
 	*gtk.Window
-	overlay *gtk.DrawingArea
+	overlay *gtk.GLArea
 }
 
 func (w *videoWindow) Populate(b *Builder) error {
 	w.Window = b.GetWindow("video_window")
 	w.SetTitle("devnet Video")
 
-	w.overlay = b.GetDrawingArea("screencast_overlay")
+	w.overlay = b.GetGLArea("screencast_overlay")
 	w.overlay.AddEvents(4)
 	w.overlay.Connect("event", w.onDaEvent)
 
 	return nil
 }
 
-func (w *videoWindow) onDaEvent(da *gtk.DrawingArea, ev *gdk.Event) bool {
+func (w *videoWindow) onDaEvent(da *gtk.GLArea, ev *gdk.Event) bool {
 	// evMotion := gdk.EventMotionNewFromEvent(ev)
 	// x, y := evMotion.MotionVal()
 
