@@ -3,6 +3,7 @@ package client
 import (
 	"fmt"
 
+	"github.com/gotk3/gotk3/gtk"
 	"github.com/lx7/devnet/gst"
 	"github.com/pion/webrtc/v3"
 	"github.com/pion/webrtc/v3/pkg/media"
@@ -13,11 +14,6 @@ type LocalStreamOpts struct {
 	ID     string
 	Group  string
 	Preset *gst.Preset
-}
-
-type StreamSender interface {
-	Send()
-	Close()
 }
 
 type LocalStream struct {
@@ -51,6 +47,10 @@ func NewLocalStream(c *webrtc.PeerConnection, so *LocalStreamOpts) (*LocalStream
 	s.pipeline.HandleSample(s.handleSample)
 
 	return s, nil
+}
+
+func (s *LocalStream) SetOverlay(w gtk.IWidget) error {
+	return s.pipeline.SetOverlayHandle(w)
 }
 
 func (s *LocalStream) Send() {

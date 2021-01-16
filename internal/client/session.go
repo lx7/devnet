@@ -1,6 +1,7 @@
 package client
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"reflect"
@@ -19,21 +20,17 @@ const (
 	LocalScreen int = iota
 	LocalCamera
 	LocalVoice
-	_maxLocalStreams
-)
-
-const (
-	RemoteScreen int = iota
+	RemoteScreen
 	RemoteCamera
 	RemoteVoice
-	_maxRemoteStreams
+	_maxStreams
 )
 
 type SessionI interface {
 	Connect(peer string) error
 	SetOverlay(int, *gtk.GLArea)
-	StartStream(int)
-	StopStream(int)
+	StartStream(int) error
+	StopStream(int) error
 	Events() <-chan Event
 }
 
@@ -44,10 +41,9 @@ type Session struct {
 	signal SignalSendReceiver
 	pdata  proto.FrameSendReceiver
 
-	h      map[reflect.Type]handler
-	events chan Event
-	ls     []*LocalStream
-	rs     []*RemoteStream
+	h       map[reflect.Type]handler
+	events  chan Event
+	streams []Stream
 }
 
 func NewSession(self string, signal SignalSendReceiver) (*Session, error) {
@@ -57,13 +53,12 @@ func NewSession(self string, signal SignalSendReceiver) (*Session, error) {
 
 	}
 	s := Session{
-		Self:   self,
-		signal: signal,
-		conn:   conn,
-		ls:     make([]*LocalStream, _maxLocalStreams),
-		rs:     make([]*RemoteStream, _maxRemoteStreams),
-		events: make(chan Event, 5),
-		h:      make(map[reflect.Type]handler),
+		Self:    self,
+		signal:  signal,
+		conn:    conn,
+		h:       make(map[reflect.Type]handler),
+		events:  make(chan Event, 5),
+		streams: make([]Stream, _maxStreams),
 	}
 
 	s.signal.HandleStateChange(s.handleSignalStateChange)
@@ -94,7 +89,7 @@ func NewSession(self string, signal SignalSendReceiver) (*Session, error) {
 		return nil, err
 	}
 
-	s.ls[LocalVoice], err = NewLocalStream(s.conn, &LocalStreamOpts{
+	s.streams[LocalVoice], err = NewLocalStream(s.conn, &LocalStreamOpts{
 		ID:     "audio",
 		Group:  "chat",
 		Preset: voicePreset,
@@ -102,7 +97,7 @@ func NewSession(self string, signal SignalSendReceiver) (*Session, error) {
 	if err != nil {
 		return nil, err
 	}
-	s.ls[LocalCamera], err = NewLocalStream(s.conn, &LocalStreamOpts{
+	s.streams[LocalCamera], err = NewLocalStream(s.conn, &LocalStreamOpts{
 		ID:     "video",
 		Group:  "chat",
 		Preset: camPreset,
@@ -110,7 +105,7 @@ func NewSession(self string, signal SignalSendReceiver) (*Session, error) {
 	if err != nil {
 		return nil, err
 	}
-	s.ls[LocalScreen], err = NewLocalStream(s.conn, &LocalStreamOpts{
+	s.streams[LocalScreen], err = NewLocalStream(s.conn, &LocalStreamOpts{
 		ID:     "screen",
 		Group:  "screen",
 		Preset: screenPreset,
@@ -119,7 +114,7 @@ func NewSession(self string, signal SignalSendReceiver) (*Session, error) {
 		return nil, err
 	}
 
-	s.rs[RemoteVoice], err = NewRemoteStream(s.conn, RemoteStreamOpts{
+	s.streams[RemoteVoice], err = NewRemoteStream(s.conn, RemoteStreamOpts{
 		ID:     "audio",
 		Group:  "chat",
 		Preset: voicePreset,
@@ -127,7 +122,7 @@ func NewSession(self string, signal SignalSendReceiver) (*Session, error) {
 	if err != nil {
 		return nil, err
 	}
-	s.rs[RemoteCamera], err = NewRemoteStream(s.conn, RemoteStreamOpts{
+	s.streams[RemoteCamera], err = NewRemoteStream(s.conn, RemoteStreamOpts{
 		ID:     "video",
 		Group:  "chat",
 		Preset: camPreset,
@@ -135,7 +130,7 @@ func NewSession(self string, signal SignalSendReceiver) (*Session, error) {
 	if err != nil {
 		return nil, err
 	}
-	s.rs[RemoteScreen], err = NewRemoteStream(s.conn, RemoteStreamOpts{
+	s.streams[RemoteScreen], err = NewRemoteStream(s.conn, RemoteStreamOpts{
 		ID:     "screen",
 		Group:  "screen",
 		Preset: screenPreset,
@@ -284,17 +279,32 @@ func (s *Session) Run() {
 
 }
 
-func (s *Session) StartStream(id int) {
+func (s *Session) StartStream(id int) error {
+	sender, ok := s.streams[id].(StreamSender)
+	if !ok {
+		return errors.New("stream is not local")
+	}
+
 	log.Info().Int("id", id).Msg("start stream")
-	s.ls[id].Send()
+	sender.Send()
+
+	return nil
 }
 
-func (s *Session) StopStream(id int) {
-	s.ls[id].Send()
+func (s *Session) StopStream(id int) error {
+	sender, ok := s.streams[id].(StreamSender)
+	if !ok {
+		return errors.New("stream is not local")
+	}
+
+	log.Info().Int("id", id).Msg("start stream")
+	sender.Stop()
+
+	return nil
 }
 
 func (s *Session) SetOverlay(id int, o *gtk.GLArea) {
-	s.rs[id].SetOverlay(o)
+	s.streams[id].SetOverlay(o)
 }
 
 func (s *Session) RCon(cm *proto.Control) error {
@@ -389,33 +399,33 @@ func (s *Session) handleTrack(track *webrtc.TrackRemote, receiver *webrtc.RTPRec
 			return nil, fmt.Errorf("codec for new track: %v", err)
 		}
 	*/
+	var st Stream
 	switch track.ID() {
 	case "audio":
-		log.Trace().Str("track_id", track.ID()).Msg("starting receive")
-		s.rs[RemoteVoice].Receive(track)
+		st = s.streams[RemoteVoice]
 	case "video":
-		log.Trace().Str("track_id", track.ID()).Msg("starting receive")
 		s.events <- EventCameraInboundStart{}
-		s.rs[RemoteCamera].Receive(track)
+		st = s.streams[RemoteCamera]
 	case "screen":
-		log.Trace().Str("track_id", track.ID()).Msg("starting receive")
 		s.events <- EventSCInboundStart{}
-		s.rs[RemoteScreen].Receive(track)
+		st = s.streams[RemoteScreen]
 	default:
 		log.Error().Str("track_id", track.ID()).Msg("track id unknown")
 		return
 	}
 
+	stream, ok := st.(StreamReceiver)
+	if !ok {
+		log.Error().Str("track_id", track.ID()).Msg("stream is not remote")
+		return
+	}
+
+	log.Trace().Str("track_id", track.ID()).Msg("starting receive")
+	stream.Receive(track)
 }
 
 func (s *Session) Close() {
-	for _, stream := range s.rs {
-		if stream == nil {
-			continue
-		}
-		stream.Close()
-	}
-	for _, stream := range s.ls {
+	for _, stream := range s.streams {
 		if stream == nil {
 			continue
 		}

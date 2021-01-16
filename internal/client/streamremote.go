@@ -16,12 +16,6 @@ type RemoteStreamOpts struct {
 	Preset *gst.Preset
 }
 
-type StreamReceiver interface {
-	SetOverlay(gtk.IWidget) error
-	Receive(*webrtc.TrackRemote)
-	Close()
-}
-
 type RemoteStream struct {
 	track    *webrtc.TrackRemote
 	pipeline *gst.Pipeline
