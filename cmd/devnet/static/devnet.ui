@@ -216,6 +216,7 @@ Author: Alexander Koeck
     </child>
   </object>
   <object class="GtkApplicationWindow" id="main_window">
+    <property name="visible">True</property>
     <property name="can-focus">False</property>
     <property name="role">devnet_main</property>
     <property name="default-width">240</property>
@@ -351,8 +352,29 @@ Author: Alexander Koeck
             </child>
             <child>
               <object class="GtkBox" id="details_box">
+                <property name="visible">True</property>
                 <property name="can-focus">False</property>
                 <property name="orientation">vertical</property>
+                <child>
+                  <object class="GtkAspectFrame">
+                    <property name="visible">True</property>
+                    <property name="can-focus">False</property>
+                    <property name="label-xalign">0</property>
+                    <property name="shadow-type">in</property>
+                    <property name="ratio">1.7699999809265137</property>
+                    <child>
+                      <placeholder/>
+                    </child>
+                    <style>
+                      <class name="video-frame"/>
+                    </style>
+                  </object>
+                  <packing>
+                    <property name="expand">True</property>
+                    <property name="fill">True</property>
+                    <property name="position">0</property>
+                  </packing>
+                </child>
                 <child>
                   <object class="GtkBox" id="share_controls">
                     <property name="visible">True</property>
@@ -381,19 +403,21 @@ Author: Alexander Koeck
                       </packing>
                     </child>
                     <child>
-                      <object class="GtkCheckButton" id="control_checkbox">
-                        <property name="label" translatable="yes">allow control</property>
+                      <object class="GtkToggleButton" id="camera_button">
+                        <property name="label" translatable="yes">Camera</property>
                         <property name="visible">True</property>
-                        <property name="sensitive">False</property>
                         <property name="can-focus">True</property>
-                        <property name="receives-default">False</property>
-                        <property name="draw-indicator">True</property>
+                        <property name="receives-default">True</property>
+                        <signal name="toggled" handler="camera_button_toggle" swapped="no"/>
+                        <style>
+                          <class name="share-button"/>
+                        </style>
                       </object>
                       <packing>
                         <property name="expand">False</property>
                         <property name="fill">False</property>
                         <property name="pack-type">end</property>
-                        <property name="position">2</property>
+                        <property name="position">1</property>
                       </packing>
                     </child>
                   </object>
@@ -412,17 +436,7 @@ Author: Alexander Koeck
                     <property name="shadow-type">in</property>
                     <property name="ratio">1.7699999809265137</property>
                     <child>
-                      <object class="GtkDrawingArea" id="camera_overlay">
-                        <property name="width-request">240</property>
-                        <property name="height-request">135</property>
-                        <property name="visible">True</property>
-                        <property name="can-focus">False</property>
-                        <property name="hexpand">True</property>
-                        <property name="vexpand">True</property>
-                        <style>
-                          <class name="video-overlay"/>
-                        </style>
-                      </object>
+                      <placeholder/>
                     </child>
                     <style>
                       <class name="video-frame"/>
@@ -447,10 +461,25 @@ Author: Alexander Koeck
             <property name="position">0</property>
           </packing>
         </child>
+        <child>
+          <object class="GtkGLArea" id="remote_camera_overlay">
+            <property name="width-request">240</property>
+            <property name="height-request">134</property>
+            <property name="visible">True</property>
+            <property name="app-paintable">True</property>
+            <property name="can-focus">False</property>
+          </object>
+          <packing>
+            <property name="expand">False</property>
+            <property name="fill">False</property>
+            <property name="position">1</property>
+          </packing>
+        </child>
       </object>
     </child>
   </object>
   <object class="GtkWindow" id="video_window">
+    <property name="visible">True</property>
     <property name="can-focus">False</property>
     <property name="role">devnet_video</property>
     <property name="default-width">800</property>
@@ -460,8 +489,9 @@ Author: Alexander Koeck
     <property name="deletable">False</property>
     <property name="gravity">center</property>
     <child>
-      <object class="GtkDrawingArea" id="screencast_overlay">
+      <object class="GtkGLArea" id="screencast_overlay">
         <property name="visible">True</property>
+        <property name="app-paintable">True</property>
         <property name="can-focus">False</property>
       </object>
     </child>
