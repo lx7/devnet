@@ -101,3 +101,64 @@ func TestPreset_Permutations(t *testing.T) {
 		log.Fatal().Str("err", entry.Msg).Msg("runtime error")
 	}
 }
+
+func TestPreset_Webcam(t *testing.T) {
+	hook := &testutil.LogHook{}
+	log.Logger = log.Hook(hook)
+	gtk.Init(nil)
+
+	preset, err := GetPreset(Camera, H264, NoHardware)
+	require.NoError(t, err)
+
+	tests := []struct {
+		desc   string
+		local  string
+		remote string
+	}{
+		{
+			desc:   "default video source",
+			local:  preset.Local,
+			remote: preset.Remote,
+		},
+	}
+
+	go func() {
+		time.Sleep(100 * time.Millisecond)
+		for _, tt := range tests {
+			lp := strings.ReplaceAll(
+				tt.local,
+				"! appsink",
+				"! rtph264pay ! appsink",
+			)
+
+			local, err := NewPipeline(lp)
+			require.NoError(t, err)
+
+			remote, err := NewPipeline(tt.remote)
+			require.NoError(t, err)
+
+			local.HandleSample(func(s media.Sample) {
+				remote.Push(s.Data)
+			})
+			remote.Start()
+			local.Start()
+
+			time.Sleep(5 * time.Second)
+
+			//local.Stop()
+			//local.Destroy()
+			//remote.Stop()
+			//remote.Destroy()
+
+			time.Sleep(100 * time.Millisecond)
+		}
+		gtk.MainQuit()
+	}()
+
+	gtk.Main()
+
+	entry := hook.Entry(zerolog.ErrorLevel)
+	if entry != nil {
+		log.Fatal().Str("err", entry.Msg).Msg("runtime error")
+	}
+}

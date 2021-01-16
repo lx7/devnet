@@ -18,8 +18,8 @@
 #endif
 
 
-GstElement *gs_new_pipeline(char *pipeline, int id);
-void gs_pipeline_set_overlay_handle (GstElement *pipeline, GdkWindow *window);
+GstElement *gs_new_pipeline (char *description, int id);
+void gs_pipeline_set_overlay_handle (int pipeline_id, GtkWidget *widget);
 void gs_pipeline_start (GstElement *element);
 void gs_pipeline_stop (GstElement *element);
 void gs_pipeline_destroy (GstElement *element);
@@ -34,6 +34,7 @@ extern void go_debug_cb(int pipeline_id, char *msg);
 
 /* GDK helper functions */
 GdkWindow *to_gdk_window (guintptr p);
+GtkWidget *to_gtk_widget (guintptr p);
 
 /* Unit test helper functions */
 void test_start_main_loop(void);

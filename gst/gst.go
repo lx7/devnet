@@ -43,14 +43,9 @@ func (p *Pipeline) SetOverlayHandle(w gtk.IWidget) error {
 	if w == nil {
 		return errors.New("invalid overlay handle: nil")
 	}
-	widget := w.ToWidget()
-	gdkWin, err := widget.GetParentWindow()
-	if err != nil {
-		return err
-	}
 
-	native := C.to_gdk_window(C.ulong(gdkWin.Native()))
-	C.gs_pipeline_set_overlay_handle(p.el, native)
+	native := C.to_gtk_widget(C.ulong(w.ToWidget().Native()))
+	C.gs_pipeline_set_overlay_handle(C.int(p.id), native)
 	return nil
 }
 

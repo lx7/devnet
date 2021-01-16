@@ -2,12 +2,89 @@
 
 package gst
 
-var screen_H264_SW = Preset{
-	MimeType: MimeTypeVideoH264,
-	Codec:    H264,
-	HW:       NoHardware,
-	Source:   Screen,
-	Local: `
+// presets holds the list of presets that are enabled for this platform
+var presets = []Preset{
+	Preset{
+		MimeType: MimeTypeVideoH264,
+		Codec:    H264,
+		HW:       NoHardware,
+		Source:   Camera,
+		Local: `    
+			v4l2src 
+    		! video/x-raw,width=640,height=360 
+    		! videorate 
+    		! video/x-raw,framerate=15/1 
+    		! queue 
+    		! videoconvert 
+    		! video/x-raw,format=I420
+   			! aspectratiocrop aspect-ratio=16/10
+			! tee name=encode
+    		! queue
+    		! videoflip method=horizontal-flip
+    		! autovideosink encode.
+    		! queue 
+    		! x264enc 
+				speed-preset=ultrafast 
+				tune=zerolatency 
+				key-int-max=20 
+				bitrate=500
+			! video/x-h264,stream-format=byte-stream,profile=high 
+			! appsink name=sink
+			`,
+		Remote: `
+			appsrc name=src format=time is-live=true do-timestamp=true
+			! application/x-rtp
+			! rtph264depay 
+    		! queue 
+			! decodebin
+			! videoconvert 
+			! autovideosink sync=false
+			`,
+	},
+	Preset{
+		MimeType: MimeTypeVideoH264,
+		Codec:    H264,
+		HW:       VAAPI,
+		Source:   Camera,
+		Local: `    
+			v4l2src 
+    		! video/x-raw,width=640,height=360 
+    		! videorate 
+    		! video/x-raw,framerate=15/1 
+   			! aspectratiocrop aspect-ratio=16/10
+			! tee name=encode
+    		! queue
+    		! videoflip method=horizontal-flip
+			! vaapipostproc
+			! vaapisink encode.
+    		! queue 
+			! vaapipostproc
+			! vaapih264enc 
+				cpb-length=300
+				quality-level=7
+				keyframe-period=0
+				compliance-mode=1
+				cabac=1
+			! video/x-h264,stream-format=byte-stream,profile=high 
+			! appsink name=sink
+			`,
+		Remote: `
+			appsrc name=src format=time is-live=true do-timestamp=true
+			! application/x-rtp
+			! rtph264depay 
+    		! h264parse
+			! vaapih264dec low-latency=true
+			! queue
+			! vaapipostproc
+			! vaapisink sync=false
+			`,
+	},
+	Preset{
+		MimeType: MimeTypeVideoH264,
+		Codec:    H264,
+		HW:       NoHardware,
+		Source:   Screen,
+		Local: `
 			ximagesrc use-damage=false 
 			! video/x-raw,framerate=25/1
 			! videoscale
@@ -20,7 +97,7 @@ var screen_H264_SW = Preset{
 			! video/x-h264,stream-format=byte-stream,profile=high 
 			! appsink name=sink
 			`,
-	Remote: `
+		Remote: `
 			appsrc name=src format=time is-live=true do-timestamp=true
 			! application/x-rtp
 			! rtph264depay 
@@ -29,14 +106,13 @@ var screen_H264_SW = Preset{
 			! videoconvert 
 			! autovideosink sync=false
 			`,
-}
-
-var screen_H264_VAAPI = Preset{
-	MimeType: MimeTypeVideoH264,
-	Codec:    H264,
-	HW:       VAAPI,
-	Source:   Screen,
-	Local: `
+	},
+	Preset{
+		MimeType: MimeTypeVideoH264,
+		Codec:    H264,
+		HW:       VAAPI,
+		Source:   Screen,
+		Local: `
 			ximagesrc use-damage=false 
 			! video/x-raw,framerate=25/1
 			! vaapipostproc
@@ -50,7 +126,7 @@ var screen_H264_VAAPI = Preset{
 			! video/x-h264,stream-format=byte-stream,profile=high
 			! appsink name=sink
 			`,
-	Remote: `
+		Remote: `
 			appsrc name=src format=time is-live=true do-timestamp=true
 			! application/x-rtp
 			! rtph264depay 
@@ -60,14 +136,13 @@ var screen_H264_VAAPI = Preset{
 			! vaapipostproc
 			! vaapisink sync=false
 			`,
-}
-
-var screen_H264_NVCODEC = Preset{
-	MimeType: MimeTypeVideoH264,
-	Codec:    H264,
-	HW:       NVCODEC,
-	Source:   Screen,
-	Local: `
+	},
+	Preset{
+		MimeType: MimeTypeVideoH264,
+		Codec:    H264,
+		HW:       NVCODEC,
+		Source:   Screen,
+		Local: `
 			ximagesrc use-damage=false 
 			! video/x-raw,framerate=25/1
 			! videoconvert
@@ -77,26 +152,25 @@ var screen_H264_NVCODEC = Preset{
 			! video/x-h264,stream-format=byte-stream,profile=high
 			! appsink name=sink
 			`,
-	Remote: `
+		Remote: `
 			appsrc name=src format=time is-live=true do-timestamp=true
 			! application/x-rtp
 			! rtph264depay 
 			! decodebin 
 			! glimagesink sync=false
 			`,
-}
-
-var voice_OPUS_SW = Preset{
-	MimeType: MimeTypeAudioOpus,
-	Codec:    Opus,
-	HW:       NoHardware,
-	Source:   Voice,
-	Local: `
+	},
+	Preset{
+		MimeType: MimeTypeAudioOpus,
+		Codec:    Opus,
+		HW:       NoHardware,
+		Source:   Voice,
+		Local: `
 			autoaudiosrc
 			! opusenc
 			! appsink name=sink
 			`,
-	Remote: `
+		Remote: `
 			appsrc name=src format=time is-live=true do-timestamp=true
 			! application/x-rtp, payload=96, encoding-name=OPUS
 			! rtpopusdepay 
@@ -104,12 +178,5 @@ var voice_OPUS_SW = Preset{
 			! queue
 			! autoaudiosink
 			`,
-}
-
-// presets holds the list of presets that are enabled for this platform
-var presets = []Preset{
-	screen_H264_SW,
-	screen_H264_VAAPI,
-	//screen_H264_NVCODEC,
-	voice_OPUS_SW,
+	},
 }

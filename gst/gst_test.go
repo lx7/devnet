@@ -29,17 +29,6 @@ func TestGStreamer_Processing(t *testing.T) {
 
 	gtk.Init(nil)
 
-	win, err := gtk.WindowNew(gtk.WINDOW_TOPLEVEL)
-	assert.NoError(t, err)
-
-	da, err := gtk.DrawingAreaNew()
-	assert.NoError(t, err)
-
-	win.Add(da)
-	win.SetTitle("Test")
-	win.Connect("destroy", gtk.MainQuit)
-	win.ShowAll()
-
 	tests := []struct {
 		desc string
 		give *Pipeline
@@ -60,36 +49,6 @@ func TestGStreamer_Processing(t *testing.T) {
 				time.Sleep(1 * time.Second)
 				p.Start()
 				time.Sleep(1 * time.Second)
-				p.Destroy()
-			},
-		},
-		{
-			desc: "gtk overlay",
-			run: func(t *testing.T) {
-				p, err := NewPipeline(`
-					videotestsrc 
-					! videoconvert 
-					! autovideosink
-					`)
-				require.NoError(t, err)
-				err = p.SetOverlayHandle(da)
-				assert.NoError(t, err)
-				p.Start()
-				time.Sleep(1 * time.Second)
-				p.Destroy()
-			},
-		},
-		{
-			desc: "nil overlay",
-			run: func(t *testing.T) {
-				p, err := NewPipeline(`
-					videotestsrc 
-					! videoconvert 
-					! autovideosink
-					`)
-				require.NoError(t, err)
-				err = p.SetOverlayHandle(nil)
-				assert.Error(t, err)
 				p.Destroy()
 			},
 		},
@@ -127,6 +86,87 @@ func TestGStreamer_Processing(t *testing.T) {
 
 				src.Destroy()
 				sink.Destroy()
+			},
+		},
+	}
+
+	go func() {
+		time.Sleep(10 * time.Millisecond)
+		for _, tt := range tests {
+			t.Run(tt.desc, tt.run)
+		}
+		glib.IdleAdd(gtk.MainQuit)
+	}()
+
+	gtk.Main()
+
+	entry := hook.Entry(zerolog.ErrorLevel)
+	if entry != nil {
+		log.Fatal().Str("err", entry.Msg).Msg("runtime error")
+	}
+}
+
+func TestGStreamer_Overlay(t *testing.T) {
+	hook := &testutil.LogHook{}
+	log.Logger = log.Hook(hook)
+
+	gtk.Init(nil)
+
+	win, err := gtk.WindowNew(gtk.WINDOW_TOPLEVEL)
+	require.NoError(t, err)
+	win.SetDefaultSize(300, 200)
+
+	box, err := gtk.BoxNew(gtk.ORIENTATION_VERTICAL, 10)
+	require.NoError(t, err)
+
+	da, err := gtk.DrawingAreaNew()
+	require.NoError(t, err)
+
+	lbl, err := gtk.LabelNew("Hello World")
+	require.NoError(t, err)
+
+	btn, err := gtk.ButtonNewWithLabel("Button")
+	require.NoError(t, err)
+
+	box.Add(lbl)
+	box.PackStart(da, true, true, 0)
+	box.Add(btn)
+	win.Add(box)
+	win.ShowAll()
+
+	tests := []struct {
+		desc string
+		give *Pipeline
+		run  func(*testing.T)
+	}{
+		{
+			desc: "gtk overlay",
+			run: func(t *testing.T) {
+				p, err := NewPipeline(`
+					videotestsrc 
+					! videoconvert 
+					! autovideosink
+					`)
+				require.NoError(t, err)
+				err = p.SetOverlayHandle(da)
+				assert.NoError(t, err)
+				p.Start()
+				time.Sleep(1 * time.Second)
+				p.Destroy()
+			},
+		},
+		{
+			desc: "nil overlay",
+			run: func(t *testing.T) {
+				p, err := NewPipeline(`
+					videotestsrc 
+					! videoconvert 
+					! autovideosink
+					`)
+				require.NoError(t, err)
+				err = p.SetOverlayHandle(nil)
+				assert.Error(t, err)
+				p.Destroy()
 			},
 		},
 	}
