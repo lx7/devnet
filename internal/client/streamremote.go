@@ -30,14 +30,6 @@ type RemoteStream struct {
 func NewRemoteStream(c *webrtc.PeerConnection, so RemoteStreamOpts) (*RemoteStream, error) {
 	s := &RemoteStream{}
 
-	// TODO: is this still needed with API v3?
-	/*
-		_, err := c.AddTransceiverFromKind(webrtc.NewRTPCodecType("video"))
-		if err != nil {
-			return nil, err
-		}
-	*/
-
 	log.Debug().Str("pipeline", so.Preset.Remote).Msg("new remote pipeline")
 	p, err := gst.NewPipeline(so.Preset.Remote)
 	if err != nil {

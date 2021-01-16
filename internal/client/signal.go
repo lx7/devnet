@@ -192,7 +192,6 @@ func (s *Signal) readPump() {
 		s.setState(SignalStateDisconnected)
 	}()
 	s.RLock()
-	s.conn.SetReadLimit(maxMessageSize)
 	s.conn.SetReadDeadline(time.Now().Add(pongTimeout))
 	s.conn.SetPongHandler(func(string) error {
 		s.conn.SetReadDeadline(time.Now().Add(pongTimeout))
@@ -215,6 +214,8 @@ func (s *Signal) readPump() {
 			) {
 				break
 			}
+			log.Info().Err(err).Msg("--> read reconnect")
+
 			s.connect()
 			continue
 		}

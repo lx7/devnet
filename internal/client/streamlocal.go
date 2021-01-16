@@ -57,6 +57,10 @@ func (s *LocalStream) Send() {
 	s.pipeline.Start()
 }
 
+func (s *LocalStream) Stop() {
+	s.pipeline.Stop()
+}
+
 func (s *LocalStream) handleSample(sample media.Sample) {
 	if err := s.track.WriteSample(sample); err != nil {
 		log.Error().Err(err).Msg("write sample to track")

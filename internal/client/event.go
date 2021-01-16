@@ -22,6 +22,10 @@ type EventSCInboundStart struct{}
 
 type EventSCInboundEnd struct{}
 
+type EventCameraInboundStart struct{}
+
+type EventCameraInboundEnd struct{}
+
 type EventRCon struct {
 	Data *proto.Control
 }

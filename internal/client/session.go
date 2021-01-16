@@ -31,8 +31,9 @@ const (
 
 type SessionI interface {
 	Connect(peer string) error
-	SetOverlay(int, *gtk.DrawingArea)
+	SetOverlay(int, *gtk.GLArea)
 	StartStream(int)
+	StopStream(int)
 	Events() <-chan Event
 }
 
@@ -84,6 +85,11 @@ func NewSession(self string, signal SignalSendReceiver) (*Session, error) {
 		gst.H264,
 		gst.NewHardwareCodec(conf.GetString("video.hardware")),
 	)
+	camPreset, err := gst.GetPreset(
+		gst.Camera,
+		gst.H264,
+		gst.NewHardwareCodec(conf.GetString("video.hardware")),
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -96,8 +102,16 @@ func NewSession(self string, signal SignalSendReceiver) (*Session, error) {
 	if err != nil {
 		return nil, err
 	}
-	s.ls[LocalScreen], err = NewLocalStream(s.conn, &LocalStreamOpts{
+	s.ls[LocalCamera], err = NewLocalStream(s.conn, &LocalStreamOpts{
 		ID:     "video",
+		Group:  "chat",
+		Preset: camPreset,
+	})
+	if err != nil {
+		return nil, err
+	}
+	s.ls[LocalScreen], err = NewLocalStream(s.conn, &LocalStreamOpts{
+		ID:     "screen",
 		Group:  "screen",
 		Preset: screenPreset,
 	})
@@ -113,8 +127,16 @@ func NewSession(self string, signal SignalSendReceiver) (*Session, error) {
 	if err != nil {
 		return nil, err
 	}
-	s.rs[RemoteScreen], err = NewRemoteStream(s.conn, RemoteStreamOpts{
+	s.rs[RemoteCamera], err = NewRemoteStream(s.conn, RemoteStreamOpts{
 		ID:     "video",
+		Group:  "chat",
+		Preset: camPreset,
+	})
+	if err != nil {
+		return nil, err
+	}
+	s.rs[RemoteScreen], err = NewRemoteStream(s.conn, RemoteStreamOpts{
+		ID:     "screen",
 		Group:  "screen",
 		Preset: screenPreset,
 	})
@@ -263,10 +285,15 @@ func (s *Session) Run() {
 }
 
 func (s *Session) StartStream(id int) {
+	log.Info().Int("id", id).Msg("start stream")
 	s.ls[id].Send()
 }
 
-func (s *Session) SetOverlay(id int, o *gtk.DrawingArea) {
+func (s *Session) StopStream(id int) {
+	s.ls[id].Send()
+}
+
+func (s *Session) SetOverlay(id int, o *gtk.GLArea) {
 	s.rs[id].SetOverlay(o)
 }
 
@@ -367,6 +394,10 @@ func (s *Session) handleTrack(track *webrtc.TrackRemote, receiver *webrtc.RTPRec
 		log.Trace().Str("track_id", track.ID()).Msg("starting receive")
 		s.rs[RemoteVoice].Receive(track)
 	case "video":
+		log.Trace().Str("track_id", track.ID()).Msg("starting receive")
+		s.events <- EventCameraInboundStart{}
+		s.rs[RemoteCamera].Receive(track)
+	case "screen":
 		log.Trace().Str("track_id", track.ID()).Msg("starting receive")
 		s.events <- EventSCInboundStart{}
 		s.rs[RemoteScreen].Receive(track)
