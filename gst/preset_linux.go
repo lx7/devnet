@@ -5,8 +5,7 @@ package gst
 // presets holds the list of presets that are enabled for this platform
 var presets = []Preset{
 	Preset{
-		MimeType: MimeTypeVideoH264,
-		Codec:    H264,
+		MimeType: MimeTypeH264,
 		HW:       NoHardware,
 		Source:   Camera,
 		Local: `    
@@ -45,8 +44,7 @@ var presets = []Preset{
 			`,
 	},
 	Preset{
-		MimeType: MimeTypeVideoH264,
-		Codec:    H264,
+		MimeType: MimeTypeH264,
 		HW:       VAAPI,
 		Source:   Camera,
 		Local: `    
@@ -81,8 +79,7 @@ var presets = []Preset{
 			`,
 	},
 	Preset{
-		MimeType: MimeTypeVideoH264,
-		Codec:    H264,
+		MimeType: MimeTypeH264,
 		HW:       NoHardware,
 		Source:   Screen,
 		Local: `
@@ -109,8 +106,7 @@ var presets = []Preset{
 			`,
 	},
 	Preset{
-		MimeType: MimeTypeVideoH264,
-		Codec:    H264,
+		MimeType: MimeTypeH264,
 		HW:       VAAPI,
 		Source:   Screen,
 		Local: `
@@ -139,8 +135,7 @@ var presets = []Preset{
 			`,
 	},
 	Preset{
-		MimeType: MimeTypeVideoH264,
-		Codec:    H264,
+		MimeType: MimeTypeH264,
 		HW:       NVCODEC,
 		Source:   Screen,
 		Local: `
@@ -162,8 +157,7 @@ var presets = []Preset{
 			`,
 	},
 	Preset{
-		MimeType: MimeTypeAudioOpus,
-		Codec:    Opus,
+		MimeType: MimeTypeOpus,
 		HW:       NoHardware,
 		Source:   Voice,
 		Local: `

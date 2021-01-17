@@ -16,19 +16,19 @@ import (
 )
 
 func TestPreset_GetPreset(t *testing.T) {
-	p, err := GetPreset(Screen, H264, NoHardware)
+	p, err := GetPreset(Screen, MimeTypeH264, NoHardware)
 	require.NoError(t, err)
-	assert.Equal(t, H264, p.Codec)
+	assert.Equal(t, MimeTypeH264, p.MimeType)
 
-	p, err = GetPreset(Voice, Opus, NoHardware)
+	p, err = GetPreset(Voice, MimeTypeOpus, NoHardware)
 	require.NoError(t, err)
-	assert.Equal(t, Opus, p.Codec)
+	assert.Equal(t, MimeTypeOpus, p.MimeType)
 
-	p, err = GetPreset(Screen, H264, hwCodec("---"))
+	p, err = GetPreset(Screen, MimeTypeH264, hwCodec("---"))
 	require.Error(t, err)
 	assert.Nil(t, p)
 
-	p, err = GetPreset(Screen, codecName(""), NoHardware)
+	p, err = GetPreset(Screen, "", NoHardware)
 	require.Error(t, err)
 	assert.Nil(t, p)
 }
@@ -107,7 +107,7 @@ func TestPreset_Webcam(t *testing.T) {
 	log.Logger = log.Hook(hook)
 	gtk.Init(nil)
 
-	preset, err := GetPreset(Camera, H264, NoHardware)
+	preset, err := GetPreset(Camera, MimeTypeH264, NoHardware)
 	require.NoError(t, err)
 
 	tests := []struct {

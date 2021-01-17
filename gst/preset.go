@@ -6,17 +6,9 @@ import (
 )
 
 const (
-	MimeTypeVideoVP8  = "video/vp8"
-	MimeTypeVideoH264 = "video/h264"
-	MimeTypeAudioOpus = "audio/opus"
-)
-
-// TODO: switch constants to int?
-type codecName string
-
-const (
-	H264 codecName = "H264"
-	Opus codecName = "Opus"
+	MimeTypeVP8  = "video/vp8"
+	MimeTypeH264 = "video/h264"
+	MimeTypeOpus = "audio/opus"
 )
 
 type hwCodec string
@@ -29,19 +21,16 @@ const (
 	OSXVT      hwCodec = "osxvt"
 )
 
-type sourceType string
-
 const (
-	Screen sourceType = "screen"
-	Camera sourceType = "camera"
-	Voice  sourceType = "voice"
+	Screen = "screen"
+	Camera = "camera"
+	Voice  = "voice"
 )
 
 type Preset struct {
 	MimeType string
-	Codec    codecName
 	HW       hwCodec
-	Source   sourceType
+	Source   string
 	Local    string
 	Remote   string
 }
@@ -62,22 +51,22 @@ func NewHardwareCodec(s string) hwCodec {
 }
 
 func (c *Preset) String() string {
-	return fmt.Sprintf("%s/%s (%s)", c.Codec, c.HW, c.Source)
+	return fmt.Sprintf("%s %s (%s)", c.MimeType, c.HW, c.Source)
 }
 
-func GetPreset(s sourceType, c codecName, h hwCodec) (*Preset, error) {
+func GetPreset(src string, mime string, h hwCodec) (*Preset, error) {
 	for _, p := range presets {
-		if p.Source == s && p.Codec == c && p.HW == h {
+		if p.Source == src && p.MimeType == mime && p.HW == h {
 			return &p, nil
 		}
 	}
-	return nil, fmt.Errorf("preset %s/%s (%s) not found", c, h, s)
+	return nil, fmt.Errorf("preset %s %s (%s) not found", mime, h, src)
 }
 
-func PresetsBySource(s sourceType) []Preset {
+func PresetsBySource(src string) []Preset {
 	var ps []Preset
 	for _, p := range presets {
-		if p.Source != s {
+		if p.Source != src {
 			continue
 		}
 		ps = append(ps, p)
