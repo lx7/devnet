@@ -10,20 +10,14 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-type LocalStreamOpts struct {
-	ID     string
-	Group  string
-	Preset *gst.Preset
-}
-
-type LocalStream struct {
+type StreamLocal struct {
 	track    *webrtc.TrackLocalStaticSample
 	pipeline *gst.Pipeline
 }
 
-func NewLocalStream(c *webrtc.PeerConnection, so *LocalStreamOpts) (*LocalStream, error) {
+func NewStreamLocal(c *webrtc.PeerConnection, so *StreamOpts) (*StreamLocal, error) {
 	t, err := webrtc.NewTrackLocalStaticSample(
-		webrtc.RTPCodecCapability{MimeType: so.Preset.MimeType},
+		webrtc.RTPCodecCapability{MimeType: so.MimeType},
 		so.ID,
 		so.Group,
 	)
@@ -35,12 +29,12 @@ func NewLocalStream(c *webrtc.PeerConnection, so *LocalStreamOpts) (*LocalStream
 		return nil, fmt.Errorf("add local track: %v", err)
 	}
 
-	s := &LocalStream{
+	s := &StreamLocal{
 		track: t,
 	}
 
-	log.Debug().Str("pipeline", so.Preset.Local).Msg("new local pipeline")
-	s.pipeline, err = gst.NewPipeline(so.Preset.Local)
+	log.Debug().Str("pipeline", so.Pipeline).Msg("new local pipeline")
+	s.pipeline, err = gst.NewPipeline(so.Pipeline)
 	if err != nil {
 		return nil, fmt.Errorf("new pipeline: %v", err)
 	}
@@ -49,25 +43,25 @@ func NewLocalStream(c *webrtc.PeerConnection, so *LocalStreamOpts) (*LocalStream
 	return s, nil
 }
 
-func (s *LocalStream) SetOverlay(w gtk.IWidget) error {
+func (s *StreamLocal) SetOverlay(w gtk.IWidget) error {
 	return s.pipeline.SetOverlayHandle(w)
 }
 
-func (s *LocalStream) Send() {
+func (s *StreamLocal) Send() {
 	s.pipeline.Start()
 }
 
-func (s *LocalStream) Stop() {
+func (s *StreamLocal) Stop() {
 	s.pipeline.Stop()
 }
 
-func (s *LocalStream) handleSample(sample media.Sample) {
+func (s *StreamLocal) handleSample(sample media.Sample) {
 	if err := s.track.WriteSample(sample); err != nil {
 		log.Error().Err(err).Msg("write sample to track")
 	}
 }
 
-func (s *LocalStream) Close() {
+func (s *StreamLocal) Close() {
 	if s == nil || s.pipeline == nil {
 		return
 	}

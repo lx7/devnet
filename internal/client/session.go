@@ -67,75 +67,7 @@ func NewSession(self string, signal SignalSendReceiver) (*Session, error) {
 	s.conn.OnSignalingStateChange(s.handlePionSignalingStateChange)
 	s.conn.OnTrack(s.handleTrack)
 
-	voicePreset, err := gst.GetPreset(
-		gst.Voice,
-		gst.Opus,
-		gst.NewHardwareCodec(""),
-	)
-	if err != nil {
-		return nil, err
-	}
-	screenPreset, err := gst.GetPreset(
-		gst.Screen,
-		gst.H264,
-		gst.NewHardwareCodec(conf.GetString("video.hardware")),
-	)
-	camPreset, err := gst.GetPreset(
-		gst.Camera,
-		gst.H264,
-		gst.NewHardwareCodec(conf.GetString("video.hardware")),
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	s.streams[LocalVoice], err = NewLocalStream(s.conn, &LocalStreamOpts{
-		ID:     "audio",
-		Group:  "chat",
-		Preset: voicePreset,
-	})
-	if err != nil {
-		return nil, err
-	}
-	s.streams[LocalCamera], err = NewLocalStream(s.conn, &LocalStreamOpts{
-		ID:     "video",
-		Group:  "chat",
-		Preset: camPreset,
-	})
-	if err != nil {
-		return nil, err
-	}
-	s.streams[LocalScreen], err = NewLocalStream(s.conn, &LocalStreamOpts{
-		ID:     "screen",
-		Group:  "screen",
-		Preset: screenPreset,
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	s.streams[RemoteVoice], err = NewRemoteStream(s.conn, RemoteStreamOpts{
-		ID:     "audio",
-		Group:  "chat",
-		Preset: voicePreset,
-	})
-	if err != nil {
-		return nil, err
-	}
-	s.streams[RemoteCamera], err = NewRemoteStream(s.conn, RemoteStreamOpts{
-		ID:     "video",
-		Group:  "chat",
-		Preset: camPreset,
-	})
-	if err != nil {
-		return nil, err
-	}
-	s.streams[RemoteScreen], err = NewRemoteStream(s.conn, RemoteStreamOpts{
-		ID:     "screen",
-		Group:  "screen",
-		Preset: screenPreset,
-	})
-	if err != nil {
+	if err := s.initStreams(); err != nil {
 		return nil, err
 	}
 
@@ -145,6 +77,70 @@ func NewSession(self string, signal SignalSendReceiver) (*Session, error) {
 	}
 
 	return &s, nil
+}
+
+func (s *Session) initStreams() error {
+	for _, st := range []struct {
+		source   string
+		mimetype string
+		lsid     int
+		rsid     int
+	}{
+		{
+			source:   gst.Voice,
+			mimetype: gst.MimeTypeOpus,
+			lsid:     LocalVoice,
+			rsid:     RemoteVoice,
+		},
+		{
+			source:   gst.Camera,
+			mimetype: gst.MimeTypeH264,
+			lsid:     LocalCamera,
+			rsid:     RemoteCamera,
+		},
+		{
+			source:   gst.Screen,
+			mimetype: gst.MimeTypeH264,
+			lsid:     LocalScreen,
+			rsid:     RemoteScreen,
+		},
+	} {
+		codec, err := gst.GetPreset(
+			st.source,
+			st.mimetype,
+			gst.NewHardwareCodec(conf.GetString(st.source+".hardware")),
+		)
+		if err != nil {
+			return err
+		}
+
+		if p := conf.GetString("codec." + st.source + ".local"); p != "" {
+			codec.Local = p
+		}
+		s.streams[st.lsid], err = NewStreamLocal(s.conn, &StreamOpts{
+			ID:       st.source,
+			Group:    "devnet",
+			MimeType: st.mimetype,
+			Pipeline: codec.Local,
+		})
+		if err != nil {
+			return err
+		}
+
+		if p := conf.GetString("codec." + st.source + ".remote"); p != "" {
+			codec.Remote = p
+		}
+		s.streams[st.rsid], err = NewStreamRemote(s.conn, StreamOpts{
+			ID:       st.source,
+			Group:    "devnet",
+			Pipeline: codec.Remote,
+		})
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func (s *Session) Connect(peer string) error {
@@ -190,6 +186,14 @@ func (s *Session) Run() {
 
 			switch p := frame.Payload.(type) {
 			case *proto.Frame_Config:
+				if p.Config.Webrtc == nil {
+					continue
+				}
+
+				if len(p.Config.Webrtc.Iceservers) == 0 {
+					continue
+				}
+
 				err := s.conn.SetConfiguration(webrtc.Configuration{
 					ICEServers: []webrtc.ICEServer{{
 						URLs: []string{p.Config.Webrtc.Iceservers[0].Url},
@@ -396,12 +400,12 @@ func (s *Session) handleTrack(track *webrtc.TrackRemote, receiver *webrtc.RTPRec
 
 	var st Stream
 	switch track.ID() {
-	case "audio":
+	case gst.Voice:
 		st = s.streams[RemoteVoice]
-	case "video":
+	case gst.Camera:
 		s.events <- EventCameraInboundStart{}
 		st = s.streams[RemoteCamera]
-	case "screen":
+	case gst.Screen:
 		s.events <- EventSCInboundStart{}
 		st = s.streams[RemoteScreen]
 	default:

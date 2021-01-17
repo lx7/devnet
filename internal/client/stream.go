@@ -5,6 +5,13 @@ import (
 	"github.com/pion/webrtc/v3"
 )
 
+type StreamOpts struct {
+	ID       string
+	Group    string
+	Pipeline string
+	MimeType string
+}
+
 type Stream interface {
 	SetOverlay(gtk.IWidget) error
 	Close()

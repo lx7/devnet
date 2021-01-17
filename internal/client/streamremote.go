@@ -10,22 +10,16 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-type RemoteStreamOpts struct {
-	ID     string
-	Group  string
-	Preset *gst.Preset
-}
-
-type RemoteStream struct {
+type StreamRemote struct {
 	track    *webrtc.TrackRemote
 	pipeline *gst.Pipeline
 }
 
-func NewRemoteStream(c *webrtc.PeerConnection, so RemoteStreamOpts) (*RemoteStream, error) {
-	s := &RemoteStream{}
+func NewStreamRemote(c *webrtc.PeerConnection, so StreamOpts) (*StreamRemote, error) {
+	s := &StreamRemote{}
 
-	log.Debug().Str("pipeline", so.Preset.Remote).Msg("new remote pipeline")
-	p, err := gst.NewPipeline(so.Preset.Remote)
+	log.Debug().Str("pipeline", so.Pipeline).Msg("new remote pipeline")
+	p, err := gst.NewPipeline(so.Pipeline)
 	if err != nil {
 		return nil, fmt.Errorf("new pipeline: %v", err)
 	}
@@ -34,11 +28,11 @@ func NewRemoteStream(c *webrtc.PeerConnection, so RemoteStreamOpts) (*RemoteStre
 	return s, nil
 }
 
-func (s *RemoteStream) SetOverlay(w gtk.IWidget) error {
+func (s *StreamRemote) SetOverlay(w gtk.IWidget) error {
 	return s.pipeline.SetOverlayHandle(w)
 }
 
-func (s *RemoteStream) Receive(t *webrtc.TrackRemote) {
+func (s *StreamRemote) Receive(t *webrtc.TrackRemote) {
 	s.track = t
 	s.pipeline.Start()
 
@@ -55,7 +49,7 @@ func (s *RemoteStream) Receive(t *webrtc.TrackRemote) {
 	}
 }
 
-func (s *RemoteStream) Close() {
+func (s *StreamRemote) Close() {
 	if s == nil || s.pipeline == nil {
 		return
 	}
