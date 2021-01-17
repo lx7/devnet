@@ -70,6 +70,12 @@ static void state_cb (GstBus *bus, GstMessage *msg, PipelineData *data) {
     GstState old, new, pending;
     gst_message_parse_state_changed (msg, &old, &new, &pending);
 
+    g_print ("pipeline %i: element %s changed state from %s to %s.\n",
+        data->id,
+        GST_OBJECT_NAME (msg->src),
+        gst_element_state_get_name (old),
+        gst_element_state_get_name (new));
+
     if (GST_MESSAGE_SRC (msg) == GST_OBJECT (data->pipeline)) {
         data->state = new;
     }
@@ -125,9 +131,20 @@ static GstFlowReturn sample_cb (GstElement *sink, PipelineData *data) {
     return GST_FLOW_OK;
 }
 
+void print_debug(const gchar *string) {
+    go_debug_cb (-1, (char *)string);
+}
+
+void print_error(const gchar *string) {
+    go_error_cb (-1, (char *)string);
+}
+
 GstElement *gs_new_pipeline (char *description, int id) {
     gst_init(NULL, NULL);
     GError *err = NULL;
+   
+    g_set_print_handler (print_debug);
+    g_set_printerr_handler (print_error);
 
     PipelineData *data = calloc(1, sizeof (PipelineData));
     data->pipeline = gst_parse_launch (description, &err);

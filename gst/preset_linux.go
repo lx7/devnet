@@ -18,18 +18,21 @@ var presets = []Preset{
     		! videoconvert 
     		! video/x-raw,format=I420
    			! aspectratiocrop aspect-ratio=16/10
+			
 			! tee name=encode
-    		! queue
-    		! videoflip method=horizontal-flip
-    		! autovideosink encode.
-    		! queue 
-    		! x264enc 
-				speed-preset=ultrafast 
-				tune=zerolatency 
-				key-int-max=20 
-				bitrate=500
-			! video/x-h264,stream-format=byte-stream,profile=high 
-			! appsink name=sink
+    			! queue
+    			! videoflip method=horizontal-flip
+    			! autovideosink 
+
+			encode.
+				! queue 
+				! x264enc 
+					speed-preset=ultrafast 
+					tune=zerolatency 
+					key-int-max=20 
+					bitrate=500
+				! video/x-h264,stream-format=byte-stream,profile=high 
+				! appsink name=sink
 			`,
 		Remote: `
 			appsrc name=src format=time is-live=true do-timestamp=true
@@ -52,21 +55,19 @@ var presets = []Preset{
     		! videorate 
     		! video/x-raw,framerate=15/1 
    			! aspectratiocrop aspect-ratio=16/10
+			
 			! tee name=encode
-    		! queue
-    		! videoflip method=horizontal-flip
-			! vaapipostproc
-			! vaapisink encode.
-    		! queue 
-			! vaapipostproc
-			! vaapih264enc 
-				cpb-length=300
-				quality-level=7
-				keyframe-period=0
-				compliance-mode=1
-				cabac=1
-			! video/x-h264,stream-format=byte-stream,profile=high 
-			! appsink name=sink
+    			! queue
+    			! videoflip method=horizontal-flip
+				! vaapipostproc
+				! autovideosink 
+
+			encode.
+				! queue 
+				! vaapipostproc
+				! vaapih264enc 
+				! video/x-h264,stream-format=byte-stream,profile=high 
+				! appsink name=sink
 			`,
 		Remote: `
 			appsrc name=src format=time is-live=true do-timestamp=true
