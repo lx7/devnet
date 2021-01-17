@@ -46,9 +46,9 @@ func (dc *DataChannel) Receive() <-chan *proto.Frame {
 	return dc.recv
 }
 
-func (dc *DataChannel) Close() {
+func (dc *DataChannel) Close() error {
 	close(dc.done)
-	return
+	return nil
 }
 
 func (dc *DataChannel) writePump() {

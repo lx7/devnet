@@ -19,8 +19,10 @@ type FrameSendReceiver interface {
 
 type FrameSender interface {
 	Send(*Frame) error
+	Close() error
 }
 
 type FrameReceiver interface {
 	Receive() <-chan *Frame
+	Close() error
 }

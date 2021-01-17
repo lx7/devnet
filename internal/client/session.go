@@ -297,7 +297,7 @@ func (s *Session) StopStream(id int) error {
 		return errors.New("stream is not local")
 	}
 
-	log.Info().Int("id", id).Msg("start stream")
+	log.Info().Int("id", id).Msg("stop stream")
 	sender.Stop()
 
 	return nil
@@ -322,7 +322,7 @@ func (s *Session) RCon(cm *proto.Control) error {
 }
 
 func (s *Session) handleSignalStateChange(st SignalState) {
-	log.Info().Stringer("state", st).Msg("signal connection state changed")
+	log.Info().Stringer("state", st).Msg("signaling: connection state changed")
 	switch st {
 	case SignalStateConnected:
 		s.events <- EventConnected{}
@@ -359,6 +359,7 @@ func (s *Session) handleICEStateChange(st webrtc.ICEConnectionState) {
 		Msg("ICE connection state changed")
 	switch st {
 	case webrtc.ICEConnectionStateConnected:
+		log.Info().Str("self", s.Self).Msg("peer connection established")
 		s.events <- EventSessionStart{}
 		return
 	case webrtc.ICEConnectionStateDisconnected:
@@ -393,12 +394,6 @@ func (s *Session) handleTrack(track *webrtc.TrackRemote, receiver *webrtc.RTPRec
 		}
 	}()
 
-	/*
-		codec, err := gst.CodecByName(t.Codec().Name)
-		if err != nil {
-			return nil, fmt.Errorf("codec for new track: %v", err)
-		}
-	*/
 	var st Stream
 	switch track.ID() {
 	case "audio":
@@ -431,7 +426,9 @@ func (s *Session) Close() {
 		}
 		stream.Close()
 	}
+	s.pdata.Close()
 	s.conn.Close()
+	log.Info().Str("self", s.Self).Msg("peer connection closed")
 }
 
 func (s *Session) Events() <-chan Event {

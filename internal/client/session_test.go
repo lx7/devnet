@@ -124,5 +124,9 @@ func (s *fakeSignal) Receive() <-chan *proto.Frame {
 	return s.recv
 }
 
+func (s *fakeSignal) Close() error {
+	return nil
+}
+
 func (s *fakeSignal) HandleStateChange(SignalStateHandler) {
 }
