@@ -11,8 +11,8 @@ type mainWindow struct {
 	waitScreen   *gtk.Box
 	channelList  *gtk.Box
 	detailsBox   *gtk.Box
-	remoteCam    *gtk.GLArea
-	localCam     *gtk.GLArea
+	remoteCam    *gtk.DrawingArea
+	localCam     *gtk.DrawingArea
 }
 
 func (w *mainWindow) Populate(b *Builder) error {
@@ -24,8 +24,8 @@ func (w *mainWindow) Populate(b *Builder) error {
 	w.detailsBox = b.GetBox("details_box")
 	w.shareButton = b.GetToggleButton("share_button")
 	w.cameraButton = b.GetToggleButton("camera_button")
-	w.remoteCam = b.GetGLArea("remote_camera_overlay")
-	w.localCam = b.GetGLArea("local_camera_overlay")
+	w.remoteCam = b.GetDrawingArea("remote_camera_overlay")
+	w.localCam = b.GetDrawingArea("local_camera_overlay")
 
 	return nil
 }

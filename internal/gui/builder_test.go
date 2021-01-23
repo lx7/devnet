@@ -54,9 +54,9 @@ func TestBuilder_GetObj(t *testing.T) {
 		},
 		{
 			give: "screencast_overlay",
-			want: &gtk.GLArea{},
+			want: &gtk.DrawingArea{},
 			f: func(b *Builder, id string) interface{} {
-				return b.GetGLArea(id)
+				return b.GetDrawingArea(id)
 			},
 		},
 		{

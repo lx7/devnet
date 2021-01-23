@@ -4,6 +4,7 @@ package gui
 import (
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/gotk3/gotk3/gdk"
 	"github.com/gotk3/gotk3/glib"
@@ -25,13 +26,15 @@ type GUI struct {
 
 	mainWindow  *mainWindow
 	videoWindow *videoWindow
-	session     client.SessionI
-	ready       chan bool
+	session     client.Session
+
+	// TODO: dynamic handling of peers
+	peer client.Peer
 }
 
 // New returns a new instance of GUI. It requires a uniqe GTK application id and
 // interfaces with the business logic through client.Session.
-func New(id string, s client.SessionI) (*GUI, error) {
+func New(id string, s client.Session) (*GUI, error) {
 	app, err := gtk.ApplicationNew(id, glib.APPLICATION_FLAGS_NONE)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create gtk application: %v", err)
@@ -42,7 +45,6 @@ func New(id string, s client.SessionI) (*GUI, error) {
 		mainWindow:  &mainWindow{},
 		videoWindow: &videoWindow{},
 		session:     s,
-		ready:       make(chan bool),
 	}
 
 	g.Connect("startup", g.onStartup)
@@ -66,10 +68,6 @@ func (g *GUI) Run() int {
 			select {
 			case e := <-g.session.Events():
 				g.onSessionEvent(e)
-			case <-g.ready:
-				g.session.SetOverlay(client.RemoteScreen, g.videoWindow.overlay)
-				g.session.SetOverlay(client.RemoteCamera, g.mainWindow.remoteCam)
-				g.session.SetOverlay(client.LocalCamera, g.mainWindow.localCam)
 			case <-done:
 				log.Info().Msg("gui client event loop done")
 				return
@@ -82,11 +80,16 @@ func (g *GUI) Run() int {
 
 // Quit immediately quits the application and lets the main loop return.
 func (g *GUI) Quit() {
-	execOnMain(func() { g.Application.Quit() })
+	execOnMain(func() {
+		g.videoWindow.Destroy()
+		g.mainWindow.Destroy()
+		time.Sleep(10 * time.Millisecond)
+		g.Application.Quit()
+	})
 }
 
 func (g *GUI) onSessionEvent(e client.Event) {
-	switch e.(type) {
+	switch e := e.(type) {
 	case client.EventConnected:
 		execOnMain(func() {
 			g.mainWindow.waitScreen.Hide()
@@ -97,16 +100,27 @@ func (g *GUI) onSessionEvent(e client.Event) {
 			g.mainWindow.waitScreen.Show()
 			g.mainWindow.channelList.Hide()
 		})
-	case client.EventSessionStart:
-		execOnMain(func() { g.mainWindow.detailsBox.Show() })
-	case client.EventSessionEnd:
+	case client.EventPeerConnected:
+		g.peer = e.Peer
+		execOnMain(func() {
+			g.mainWindow.detailsBox.Show()
+		})
+	case client.EventPeerDisconnected:
 		execOnMain(func() { g.mainWindow.detailsBox.Hide() })
-	case client.EventCameraInboundStart:
-	case client.EventCameraInboundEnd:
-	case client.EventSCInboundStart:
-		execOnMain(func() { g.videoWindow.Show() })
-	case client.EventSCInboundEnd:
-		execOnMain(func() { g.videoWindow.Hide() })
+		g.peer = nil
+	case client.EventStreamStart:
+		switch e.Stream.ID() {
+		case "screen":
+			e.Stream.SetOverlay(g.videoWindow.overlay)
+			execOnMain(func() { g.videoWindow.Show() })
+		case "video":
+			e.Stream.SetOverlay(g.mainWindow.remoteCam)
+		}
+	case client.EventStreamEnd:
+		switch e.Stream.ID() {
+		case "screen":
+			execOnMain(func() { g.videoWindow.Hide() })
+		}
 	}
 }
 
@@ -138,7 +152,7 @@ func (g *GUI) onStartup() {
 	gtk.AddProviderForScreen(
 		screen,
 		cssProvider,
-		gtk.STYLE_PROVIDER_PRIORITY_USER)
+		gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
 
 	signals := map[string]interface{}{
 		"main_window_destroy":  g.onDestroy,
@@ -163,11 +177,6 @@ func (g *GUI) onStartup() {
 func (g *GUI) onActivate() {
 	log.Info().Msg("application activated")
 	g.mainWindow.Show()
-	g.mainWindow.detailsBox.Show()
-	//g.mainWindow.detailsBox.Hide()
-	g.videoWindow.Show()
-	g.videoWindow.Hide()
-	g.ready <- true
 }
 
 func (g *GUI) onShutdown() {
@@ -188,17 +197,18 @@ func (g *GUI) onCallUser2() {
 
 func (g *GUI) onShareButtonToggle(b *gtk.ToggleButton) {
 	if b.GetActive() {
-		g.session.StartStream(client.LocalScreen)
+		g.peer.ScreenLocal().Send()
 	} else {
-		g.session.StopStream(client.LocalScreen)
+		g.peer.ScreenLocal().Stop()
 	}
 }
 
 func (g *GUI) onCameraButtonToggle(b *gtk.ToggleButton) {
 	if b.GetActive() {
-		g.session.StartStream(client.LocalCamera)
+		g.peer.VideoLocal().SetOverlay(g.mainWindow.localCam)
+		g.peer.VideoLocal().Send()
 	} else {
-		g.session.StopStream(client.LocalCamera)
+		g.peer.VideoLocal().Stop()
 	}
 }
 

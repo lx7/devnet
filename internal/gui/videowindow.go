@@ -7,14 +7,14 @@ import (
 
 type videoWindow struct {
 	*gtk.Window
-	overlay *gtk.GLArea
+	overlay *gtk.DrawingArea
 }
 
 func (w *videoWindow) Populate(b *Builder) error {
 	w.Window = b.GetWindow("video_window")
 	w.SetTitle("devnet Video")
 
-	w.overlay = b.GetGLArea("screencast_overlay")
+	w.overlay = b.GetDrawingArea("screencast_overlay")
 	w.overlay.AddEvents(4)
 	w.overlay.Connect("event", w.onDaEvent)
 
