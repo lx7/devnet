@@ -68,7 +68,7 @@ func run() int {
 	header := auth.BasicAuthHeader(u, p)
 	signal := client.Dial(url, header)
 
-	sChan := make(chan *client.Session, 1)
+	sChan := make(chan client.Session, 1)
 	go func() {
 		session, err := client.NewSession(u, signal)
 		if err != nil {
