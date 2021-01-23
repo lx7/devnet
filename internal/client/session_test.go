@@ -32,7 +32,7 @@ func init() {
 	runtime.LockOSThread()
 }
 
-func TestSession_Flow(t *testing.T) {
+func TestSession(t *testing.T) {
 	hook := &testutil.LogHook{}
 	log.Logger = log.Hook(hook)
 	gtk.Init(nil)
@@ -55,6 +55,12 @@ func TestSession_Flow(t *testing.T) {
 		assert.NoError(t, err)
 		go s2.Run()
 
+		signal1.statehandler(SignalStateConnected)
+		signal2.statehandler(SignalStateConnected)
+
+		require.IsType(t, EventConnected{}, <-s1.Events())
+		require.IsType(t, EventConnected{}, <-s2.Events())
+
 		// configure
 		conf := &proto.Frame{
 			Payload: &proto.Frame_Config{Config: &proto.Config{
@@ -74,25 +80,23 @@ func TestSession_Flow(t *testing.T) {
 		// test webrtc connection
 		err = s1.Connect("user2")
 		require.NoError(t, err)
-		require.IsType(t, EventSessionStart{}, <-s2.Events())
+
+		// get Peer instance from event
+		require.IsType(t, EventPeerConnected{}, <-s1.Events())
+		ev := <-s2.Events()
+		peer1 := ev.(EventPeerConnected).Peer
+		assert.Equal(t, "user1", peer1.Name())
+
 		time.Sleep(100 * time.Millisecond)
 
-		// send remote control message
-		give := &proto.Control{
-			Time: 100,
-		}
-
-		s1.RCon(give)
-
+		// start a stream and check events
+		peer1.ScreenLocal().Send()
 		select {
-		case have := <-s2.Events():
-			assert.IsType(t, EventRCon{}, have)
+		case ev := <-s1.Events():
+			assert.IsType(t, ev, EventStreamStart{})
 		case <-time.After(1 * time.Second):
 			t.Error("receive timeout")
 		}
-
-		// start video stream
-		s1.StartStream(LocalScreen)
 
 		time.Sleep(2 * time.Second)
 
@@ -111,8 +115,9 @@ func TestSession_Flow(t *testing.T) {
 }
 
 type fakeSignal struct {
-	other *fakeSignal
-	recv  chan *proto.Frame
+	other        *fakeSignal
+	recv         chan *proto.Frame
+	statehandler func(SignalState)
 }
 
 func (s *fakeSignal) Send(f *proto.Frame) error {
@@ -128,5 +133,6 @@ func (s *fakeSignal) Close() error {
 	return nil
 }
 
-func (s *fakeSignal) HandleStateChange(SignalStateHandler) {
+func (s *fakeSignal) HandleStateChange(h SignalStateHandler) {
+	s.statehandler = h
 }

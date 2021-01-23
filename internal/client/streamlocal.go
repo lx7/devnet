@@ -43,6 +43,10 @@ func NewStreamLocal(c *webrtc.PeerConnection, so *StreamOpts) (*StreamLocal, err
 	return s, nil
 }
 
+func (s *StreamLocal) ID() string {
+	return s.track.ID()
+}
+
 func (s *StreamLocal) SetOverlay(w gtk.IWidget) error {
 	return s.pipeline.SetOverlayHandle(w)
 }

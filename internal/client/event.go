@@ -10,27 +10,40 @@ import (
 
 type Event interface{}
 
+// EventConnected occurs when the connection to the signaling service has been
+// established.
 type EventConnected struct{}
 
+// EventDisconnected occurs when the connection to the signaling service has
+// been closed.
 type EventDisconnected struct{}
 
-type EventSessionStart struct{}
+// EventPeerConnected occurs when a new peer connection has been established.
+type EventPeerConnected struct {
+	Peer Peer
+}
 
-type EventSessionEnd struct{}
+// EventPeerDisconnected occurs when a peer connection has been closed.
+type EventPeerDisconnected struct {
+	Peer Peer
+}
 
-type EventSCInboundStart struct{}
+type EventStreamStart struct {
+	Peer   Peer
+	Stream Stream
+}
 
-type EventSCInboundEnd struct{}
-
-type EventCameraInboundStart struct{}
-
-type EventCameraInboundEnd struct{}
+type EventStreamEnd struct {
+	Peer   Peer
+	Stream Stream
+}
 
 type EventRCon struct {
+	Peer Peer
 	Data *proto.Control
 }
 
-func (s *Session) Handle(f interface{}, args ...interface{}) error {
+func (s *DefaultSession) Handle(f interface{}, args ...interface{}) error {
 	rf := reflect.ValueOf(f)
 	kind := rf.Type().Kind()
 	if kind != reflect.Func {
@@ -61,7 +74,7 @@ type handler struct {
 	args []reflect.Value
 }
 
-func (s *Session) callHandler(e Event) bool {
+func (s *DefaultSession) callHandler(e Event) bool {
 	h, ok := s.h[reflect.TypeOf(e)]
 	if ok {
 		vargs := append([]reflect.Value{reflect.ValueOf(e)}, h.args...)

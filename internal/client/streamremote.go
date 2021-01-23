@@ -3,6 +3,7 @@ package client
 import (
 	"fmt"
 	"io"
+	"time"
 
 	"github.com/gotk3/gotk3/gtk"
 	"github.com/lx7/devnet/gst"
@@ -10,9 +11,16 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+const (
+	inactive_timeout = 800 * time.Millisecond
+	inactive_ticker  = 100 * time.Millisecond
+)
+
 type StreamRemote struct {
-	track    *webrtc.TrackRemote
-	pipeline *gst.Pipeline
+	track     *webrtc.TrackRemote
+	pipeline  *gst.Pipeline
+	lastframe time.Time
+	active    bool
 }
 
 func NewStreamRemote(c *webrtc.PeerConnection, so StreamOpts) (*StreamRemote, error) {
@@ -28,6 +36,10 @@ func NewStreamRemote(c *webrtc.PeerConnection, so StreamOpts) (*StreamRemote, er
 	return s, nil
 }
 
+func (s *StreamRemote) ID() string {
+	return s.track.ID()
+}
+
 func (s *StreamRemote) SetOverlay(w gtk.IWidget) error {
 	return s.pipeline.SetOverlayHandle(w)
 }
@@ -35,6 +47,21 @@ func (s *StreamRemote) SetOverlay(w gtk.IWidget) error {
 func (s *StreamRemote) Receive(t *webrtc.TrackRemote) {
 	s.track = t
 	s.pipeline.Start()
+	s.active = true
+
+	ticker := time.NewTicker(inactive_timeout)
+	defer ticker.Stop()
+	go func() {
+		for range ticker.C {
+			if s.track == nil || s.pipeline == nil {
+				return
+			}
+			if time.Since(s.lastframe) > inactive_timeout {
+				s.pipeline.Pause()
+				s.active = false
+			}
+		}
+	}()
 
 	buf := make([]byte, 1400)
 	for {
@@ -45,7 +72,13 @@ func (s *StreamRemote) Receive(t *webrtc.TrackRemote) {
 		} else if err != nil {
 			log.Error().Err(err).Msg("reading track buffer")
 		}
+
+		if !s.active {
+			s.pipeline.Start()
+			s.active = true
+		}
 		s.pipeline.Push(buf[:i])
+		s.lastframe = time.Now()
 	}
 }
 

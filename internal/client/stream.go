@@ -13,6 +13,7 @@ type StreamOpts struct {
 }
 
 type Stream interface {
+	ID() string
 	SetOverlay(gtk.IWidget) error
 	Close()
 }
