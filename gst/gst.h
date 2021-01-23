@@ -17,13 +17,15 @@
 #include <gdk/gdkquartzwindow.h>
 #endif
 
+typedef struct _PipelineData PipelineData;
 
-GstElement *gs_new_pipeline (char *description, int id);
-void gs_pipeline_set_overlay_handle (int pipeline_id, GtkWidget *widget);
-void gs_pipeline_start (GstElement *element);
-void gs_pipeline_stop (GstElement *element);
-void gs_pipeline_destroy (GstElement *element);
-void gs_pipeline_appsrc_push (GstElement *pipeline, void *buf, int len);
+PipelineData *gs_new_pipeline (char *description, int id);
+void gs_pipeline_set_overlay_handle (PipelineData *data, GtkWidget *widget);
+void gs_pipeline_start (PipelineData *data);
+void gs_pipeline_pause (PipelineData *data);
+void gs_pipeline_stop (PipelineData *data);
+void gs_pipeline_destroy (PipelineData *data);
+void gs_pipeline_appsrc_push (PipelineData *data, void *buf, int len);
 
 /* go exports */
 extern void go_sample_cb(int pipeline_id, void *buf, int buflen, int samples);

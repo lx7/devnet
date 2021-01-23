@@ -5,12 +5,11 @@
 typedef struct _PipelineData {
     int              id;
     GstElement      *pipeline;           
-    GstState         state;
     GstVideoOverlay *overlay;
+    GstState         state;
     GtkWidget       *widget;
 } PipelineData;
 
-static PipelineData *pipelines[512];
 static guintptr video_window_handle[512];
 
 static GstBusSyncReply 
@@ -54,30 +53,42 @@ static gboolean draw_cb (GtkWidget *widget, cairo_t *cr, PipelineData *data) {
     gtk_widget_get_allocation (widget, &al);
      
     if (data->overlay != NULL) {
-        gst_video_overlay_set_render_rectangle(data->overlay, al.x, al.y, al.width, al.height);
-        gst_video_overlay_expose(data->overlay);
+        if (data->state <= GST_STATE_PAUSED) {
+            gst_video_overlay_set_render_rectangle (data->overlay, 0, 0, 1, 1);
+        } else {
+            gst_video_overlay_set_render_rectangle (data->overlay, al.x, al.y, al.width, al.height);
+            gst_video_overlay_expose(data->overlay);
+        }
+    }
+    
+    if (data->state <= GST_STATE_PAUSED) {
+        /*
+        gst_video_overlay_set_render_rectangle (data->overlay, 0, 0, 1, 1);
+        cairo_set_source_rgb (cr, 0, 0, 0);
+        cairo_rectangle (cr, 0, 0, al.width, al.height);
+        cairo_fill (cr);
+        */
     }
 
-    if (data->state < GST_STATE_PAUSED) {
-        cairo_set_source_rgb (cr, 0, 0, 0);
-        cairo_rectangle (cr, al.x, al.y, al.width, al.height);
-        cairo_fill (cr);
-    }
     return FALSE;
 }
 
 static void state_cb (GstBus *bus, GstMessage *msg, PipelineData *data) {
     GstState old, new, pending;
     gst_message_parse_state_changed (msg, &old, &new, &pending);
-
-    g_print ("pipeline %i: element %s changed state from %s to %s.\n",
-        data->id,
-        GST_OBJECT_NAME (msg->src),
-        gst_element_state_get_name (old),
-        gst_element_state_get_name (new));
-
+       
     if (GST_MESSAGE_SRC (msg) == GST_OBJECT (data->pipeline)) {
+        g_print ("pipeline %i: element %s changed state from %s to %s.\n",
+            data->id,
+            GST_OBJECT_NAME (msg->src),
+            gst_element_state_get_name (old),
+            gst_element_state_get_name (new));
+
         data->state = new;
+
+        if (data->widget != NULL) {
+            gtk_widget_queue_draw (data->widget);
+        }
     }
 }
 
@@ -139,7 +150,7 @@ void print_error(const gchar *string) {
     go_error_cb (-1, (char *)string);
 }
 
-GstElement *gs_new_pipeline (char *description, int id) {
+PipelineData *gs_new_pipeline (char *description, int id) {
     gst_init(NULL, NULL);
     GError *err = NULL;
    
@@ -152,7 +163,6 @@ GstElement *gs_new_pipeline (char *description, int id) {
         go_error_cb (id, err->message);
     }
     data->id = id;
-    pipelines[id] = data;
     
     video_window_handle[id] = 0;
     
@@ -171,29 +181,34 @@ GstElement *gs_new_pipeline (char *description, int id) {
         gst_object_unref (sink);
     }
     
-    return data->pipeline;
+    return data;
 }
 
-void gs_pipeline_set_overlay_handle (int id, GtkWidget *widget) {
-    pipelines[id]->widget = widget;
-    g_signal_connect (widget, "draw", G_CALLBACK (draw_cb), pipelines[id]);
+void gs_pipeline_set_overlay_handle (PipelineData *data, GtkWidget *widget) {
+    data->widget = widget;
+    g_signal_connect (widget, "draw", G_CALLBACK (draw_cb), data);
 }
 
-void gs_pipeline_start (GstElement *pipeline) {
-    gst_element_set_state (pipeline, GST_STATE_PLAYING);
+void gs_pipeline_start (PipelineData *data) {
+    gst_element_set_state (data->pipeline, GST_STATE_PLAYING);
 }
 
-void gs_pipeline_stop (GstElement *pipeline) { 
-    gst_element_set_state (pipeline, GST_STATE_READY); 
+void gs_pipeline_pause (PipelineData *data) { 
+    gst_element_set_state (data->pipeline, GST_STATE_PAUSED); 
 }
 
-void gs_pipeline_destroy (GstElement *pipeline) { 
-    gst_element_set_state (pipeline, GST_STATE_NULL); 
-    gst_object_unref(pipeline);
+void gs_pipeline_stop (PipelineData *data) { 
+    gst_element_set_state (data->pipeline, GST_STATE_READY); 
 }
 
-void gs_pipeline_appsrc_push (GstElement *pipeline, void *buf, int len) {
-    GstElement *src = gst_bin_get_by_name (GST_BIN (pipeline), "src");
+void gs_pipeline_destroy (PipelineData *data) { 
+    gst_element_set_state (data->pipeline, GST_STATE_NULL); 
+    gst_object_unref(data->pipeline);
+    free(data);
+}
+
+void gs_pipeline_appsrc_push (PipelineData *data, void *buf, int len) {
+    GstElement *src = gst_bin_get_by_name (GST_BIN (data->pipeline), "src");
     if (src != NULL) {
         gpointer p = g_memdup (buf, len);
         GstBuffer *buf = gst_buffer_new_wrapped (p, len);

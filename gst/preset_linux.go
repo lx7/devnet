@@ -52,13 +52,15 @@ var presets = []Preset{
     		! video/x-raw,width=640,height=360 
     		! videorate 
     		! video/x-raw,framerate=15/1 
+			! videoconvert 
+			! video/x-raw,format=I420
    			! aspectratiocrop aspect-ratio=16/10
 			
 			! tee name=encode
     			! queue
     			! videoflip method=horizontal-flip
 				! vaapipostproc
-				! autovideosink 
+    			! vaapisink 
 
 			encode.
 				! queue 

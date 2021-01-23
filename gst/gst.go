@@ -22,6 +22,7 @@ type SampleHandlerFunc func(media.Sample)
 type Pipeline struct {
 	id      int
 	el      *C.GstElement
+	native  *C.PipelineData
 	handler SampleHandlerFunc
 }
 
@@ -31,8 +32,8 @@ func NewPipeline(desc string) (*Pipeline, error) {
 
 	p := &Pipeline{}
 	p.id = pipes.register(p)
-	p.el = C.gs_new_pipeline(descU, C.int(p.id))
-	if p.el == nil {
+	p.native = C.gs_new_pipeline(descU, C.int(p.id))
+	if p.native == nil {
 		return nil, errors.New("failed to create pipeline")
 	}
 
@@ -44,8 +45,8 @@ func (p *Pipeline) SetOverlayHandle(w gtk.IWidget) error {
 		return errors.New("invalid overlay handle: nil")
 	}
 
-	native := C.to_gtk_widget(C.ulong(w.ToWidget().Native()))
-	C.gs_pipeline_set_overlay_handle(C.int(p.id), native)
+	nwidget := C.to_gtk_widget(C.ulong(w.ToWidget().Native()))
+	C.gs_pipeline_set_overlay_handle(p.native, nwidget)
 	return nil
 }
 
@@ -56,19 +57,23 @@ func (p *Pipeline) HandleSample(f SampleHandlerFunc) {
 func (p *Pipeline) Push(buf []byte) {
 	bytes := C.CBytes(buf)
 	defer C.free(bytes)
-	C.gs_pipeline_appsrc_push(p.el, bytes, C.int(len(buf)))
+	C.gs_pipeline_appsrc_push(p.native, bytes, C.int(len(buf)))
 }
 
 func (p *Pipeline) Start() {
-	C.gs_pipeline_start(p.el)
+	C.gs_pipeline_start(p.native)
+}
+
+func (p *Pipeline) Pause() {
+	C.gs_pipeline_pause(p.native)
 }
 
 func (p *Pipeline) Stop() {
-	C.gs_pipeline_stop(p.el)
+	C.gs_pipeline_stop(p.native)
 }
 
 func (p *Pipeline) Destroy() {
-	C.gs_pipeline_destroy(p.el)
+	C.gs_pipeline_destroy(p.native)
 	pipes.unregister(p.id)
 }
 
