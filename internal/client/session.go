@@ -29,9 +29,10 @@ type DefaultSession struct {
 	peers   map[string]Peer
 	forward chan *proto.Frame
 
-	h      map[reflect.Type]handler
-	events chan Event
-	done   chan bool
+	h       map[reflect.Type]handler
+	sevents chan Event
+	pevents chan Event
+	done    chan bool
 }
 
 func NewSession(self string, signal SignalSendReceiver) (*DefaultSession, error) {
@@ -42,9 +43,10 @@ func NewSession(self string, signal SignalSendReceiver) (*DefaultSession, error)
 		peers:   make(map[string]Peer),
 		forward: make(chan *proto.Frame, 10),
 
-		h:      make(map[reflect.Type]handler),
-		events: make(chan Event, 10),
-		done:   make(chan bool),
+		h:       make(map[reflect.Type]handler),
+		pevents: make(chan Event, 10),
+		sevents: make(chan Event, 10),
+		done:    make(chan bool),
 	}
 
 	s.signal.HandleStateChange(s.handleSignalStateChange)
@@ -79,7 +81,7 @@ func (s *DefaultSession) Run() {
 				p, ok := s.peers[frame.Src]
 				if !ok {
 					var err error
-					p, err = NewPeer(frame.Src, s.forward, s.events)
+					p, err = NewPeer(frame.Src, s.forward, s.pevents)
 					if err != nil {
 						log.Error().Err(err).Str("peer", frame.Src).Msg("new peer")
 						continue
@@ -98,8 +100,14 @@ func (s *DefaultSession) Run() {
 				log.Error().Err(err).Str("dst", frame.Dst).Msg("send frame")
 				continue
 			}
-		// TODO: handle peer events
-		// TODO: remove peer on close
+		case e := <-s.pevents:
+			switch e := e.(type) {
+			case EventPeerConnected, EventStreamStart, EventStreamEnd:
+				s.sevents <- e
+			case EventPeerDisconnected:
+				delete(s.peers, e.Peer.Name())
+				s.sevents <- e
+			}
 		case <-s.done:
 			break
 		}
@@ -108,11 +116,11 @@ func (s *DefaultSession) Run() {
 }
 
 func (s *DefaultSession) Connect(name string) error {
-	if p, ok := s.peers[name]; ok {
+	if p, ok := s.peers[name]; ok && p != nil {
 		p.Close()
 	}
 
-	p, err := NewPeer(name, s.forward, s.events)
+	p, err := NewPeer(name, s.forward, s.pevents)
 	if err != nil {
 		return err
 	}
@@ -130,22 +138,23 @@ func (s *DefaultSession) Close() {
 		peer.Close()
 		peer = nil
 	}
-	close(s.events)
+	close(s.sevents)
+	close(s.pevents)
 	close(s.done)
 
 	log.Info().Str("self", s.Self).Msg("session closed")
 }
 
 func (s *DefaultSession) Events() <-chan Event {
-	return s.events
+	return s.sevents
 }
 
 func (s *DefaultSession) handleSignalStateChange(st SignalState) {
 	log.Info().Stringer("state", st).Msg("signaling: connection state changed")
 	switch st {
 	case SignalStateConnected:
-		s.events <- EventConnected{}
+		s.sevents <- EventConnected{}
 	case SignalStateDisconnected:
-		s.events <- EventDisconnected{}
+		s.sevents <- EventDisconnected{}
 	}
 }

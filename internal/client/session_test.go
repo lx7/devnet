@@ -98,8 +98,12 @@ func TestSession(t *testing.T) {
 			t.Error("receive timeout")
 		}
 
-		time.Sleep(2 * time.Second)
+		time.Sleep(1 * time.Second)
 
+		err = s1.Connect("user2")
+		require.IsType(t, EventPeerConnected{}, <-s1.Events())
+
+		time.Sleep(1 * time.Second)
 		s1.Close()
 		s2.Close()
 		time.Sleep(10 * time.Millisecond)

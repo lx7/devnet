@@ -22,6 +22,7 @@ type Peer interface {
 	ScreenLocal() StreamSender
 	ScreenRemote() StreamReceiver
 
+	Name() string
 	HandleSignaling(*proto.Frame) error
 	Close()
 }
@@ -346,9 +347,14 @@ func (p *DefaultPeer) Close() {
 		}
 		stream.Close()
 	}
-	p.data.Close()
-	p.conn.Close()
-	close(p.done)
+
+	select {
+	case <-p.done:
+	default:
+		p.data.Close()
+		p.conn.Close()
+		close(p.done)
+	}
 
 	log.Info().Str("peer", p.name).Msg("peer connection closed")
 }
