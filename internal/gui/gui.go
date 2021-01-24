@@ -207,8 +207,10 @@ func (g *GUI) onCameraButtonToggle(b *gtk.ToggleButton) {
 	if b.GetActive() {
 		g.peer.VideoLocal().SetOverlay(g.mainWindow.localCam)
 		g.peer.VideoLocal().Send()
+		g.peer.AudioLocal().Send()
 	} else {
 		g.peer.VideoLocal().Stop()
+		g.peer.AudioLocal().Stop()
 	}
 }
 
