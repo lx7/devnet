@@ -263,8 +263,8 @@ func (p *DefaultPeer) handleICEStateChange(st webrtc.ICEConnectionState) {
 		p.events <- EventPeerConnected{Peer: p}
 		return
 	case webrtc.ICEConnectionStateDisconnected:
-		p.events <- EventPeerDisconnected{Peer: p}
 		p.Close()
+		p.events <- EventPeerDisconnected{Peer: p}
 	case webrtc.ICEConnectionStateFailed:
 	case webrtc.ICEConnectionStateClosed:
 	}
@@ -338,6 +338,10 @@ func (p *DefaultPeer) Close() {
 	for _, stream := range p.str {
 		if stream == nil {
 			continue
+		}
+		p.events <- EventStreamEnd{
+			Peer:   p,
+			Stream: stream,
 		}
 		stream.Close()
 	}

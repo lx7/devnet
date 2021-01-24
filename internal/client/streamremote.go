@@ -17,6 +17,7 @@ const (
 )
 
 type StreamRemote struct {
+	id        string
 	track     *webrtc.TrackRemote
 	pipeline  *gst.Pipeline
 	lastframe time.Time
@@ -24,7 +25,9 @@ type StreamRemote struct {
 }
 
 func NewStreamRemote(c *webrtc.PeerConnection, so StreamOpts) (*StreamRemote, error) {
-	s := &StreamRemote{}
+	s := &StreamRemote{
+		id: so.ID,
+	}
 
 	log.Debug().Str("pipeline", so.Pipeline).Msg("new remote pipeline")
 	p, err := gst.NewPipeline(so.Pipeline)
@@ -37,7 +40,7 @@ func NewStreamRemote(c *webrtc.PeerConnection, so StreamOpts) (*StreamRemote, er
 }
 
 func (s *StreamRemote) ID() string {
-	return s.track.ID()
+	return s.id
 }
 
 func (s *StreamRemote) SetOverlay(w gtk.IWidget) error {
@@ -46,6 +49,7 @@ func (s *StreamRemote) SetOverlay(w gtk.IWidget) error {
 
 func (s *StreamRemote) Receive(t *webrtc.TrackRemote) {
 	s.track = t
+	s.id = t.ID()
 	s.pipeline.Start()
 	s.active = true
 

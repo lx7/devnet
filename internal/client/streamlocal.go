@@ -11,6 +11,7 @@ import (
 )
 
 type StreamLocal struct {
+	id       string
 	track    *webrtc.TrackLocalStaticSample
 	pipeline *gst.Pipeline
 }
@@ -30,6 +31,7 @@ func NewStreamLocal(c *webrtc.PeerConnection, so *StreamOpts) (*StreamLocal, err
 	}
 
 	s := &StreamLocal{
+		id:    so.ID,
 		track: t,
 	}
 
@@ -44,7 +46,7 @@ func NewStreamLocal(c *webrtc.PeerConnection, so *StreamOpts) (*StreamLocal, err
 }
 
 func (s *StreamLocal) ID() string {
-	return s.track.ID()
+	return s.id
 }
 
 func (s *StreamLocal) SetOverlay(w gtk.IWidget) error {
@@ -52,10 +54,16 @@ func (s *StreamLocal) SetOverlay(w gtk.IWidget) error {
 }
 
 func (s *StreamLocal) Send() {
+	if s.pipeline == nil {
+		return
+	}
 	s.pipeline.Start()
 }
 
 func (s *StreamLocal) Stop() {
+	if s.pipeline == nil {
+		return
+	}
 	s.pipeline.Stop()
 }
 
