@@ -39,17 +39,24 @@ type DefaultPeer struct {
 	done    chan bool
 }
 
-func NewPeer(name string, sig chan<- *proto.Frame, ev chan<- Event) (*DefaultPeer, error) {
-	conn, err := webrtc.NewPeerConnection(webrtc.Configuration{})
+type PeerOptions struct {
+	Name    string
+	Signals chan<- *proto.Frame
+	Events  chan<- Event
+	Config  webrtc.Configuration
+}
+
+func NewPeer(o PeerOptions) (*DefaultPeer, error) {
+	conn, err := webrtc.NewPeerConnection(o.Config)
 	if err != nil {
 		return nil, fmt.Errorf("new peer connection: %v", err)
 
 	}
 	p := DefaultPeer{
 		conn:    conn,
-		name:    name,
-		signals: sig,
-		events:  ev,
+		name:    o.Name,
+		signals: o.Signals,
+		events:  o.Events,
 		str:     make(map[string]StreamReceiver),
 		stl:     make(map[string]StreamSender),
 		done:    make(chan bool),
@@ -153,29 +160,18 @@ func (p *DefaultPeer) Connect() error {
 
 func (p *DefaultPeer) HandleSignaling(frame *proto.Frame) error {
 	switch pl := frame.Payload.(type) {
-	case *proto.Frame_Config:
-		if pl.Config.Webrtc == nil {
-			return nil
-		}
-		if len(pl.Config.Webrtc.Iceservers) == 0 {
-			return nil
-		}
-
-		err := p.conn.SetConfiguration(webrtc.Configuration{
-			ICEServers: []webrtc.ICEServer{{
-				URLs: []string{pl.Config.Webrtc.Iceservers[0].Url},
-			}},
-		})
-		if err != nil {
-			return fmt.Errorf("configure webrtc: %v", err)
-		}
-
 	case *proto.Frame_Ice:
+		log.Debug().
+			Str("peer", p.name).
+			Str("candidate", pl.ICECandidate().Candidate).
+			Msg("received ice candidate")
 		p.conn.AddICECandidate(pl.ICECandidate())
 
 	case *proto.Frame_Sdp:
 		switch pl.Sdp.Type {
 		case proto.SDP_OFFER:
+			log.Debug().Str("peer", p.name).Msg("received sdp offer")
+
 			err := p.conn.SetRemoteDescription(pl.SessionDescription())
 			if err != nil {
 				return fmt.Errorf("set remote session to offer: %v", err)
@@ -196,6 +192,8 @@ func (p *DefaultPeer) HandleSignaling(frame *proto.Frame) error {
 				Payload: proto.PayloadWithSD(answer),
 			}
 		case proto.SDP_ANSWER:
+			log.Debug().Str("peer", p.name).Msg("received sdp answer")
+
 			err := p.conn.SetRemoteDescription(pl.SessionDescription())
 			if err != nil {
 				return fmt.Errorf("set remote session to answer: %v", err)
@@ -249,6 +247,11 @@ func (p *DefaultPeer) handleICECandidate(c *webrtc.ICECandidate) {
 	if c == nil {
 		return
 	}
+	log.Debug().
+		Str("peer", p.name).
+		Stringer("candidate", c).
+		Msg("sending new ice candidate")
+
 	p.signals <- &proto.Frame{
 		Dst:     p.name,
 		Payload: proto.PayloadWithICECandidate(c.ToJSON()),
@@ -256,7 +259,11 @@ func (p *DefaultPeer) handleICECandidate(c *webrtc.ICECandidate) {
 }
 
 func (p *DefaultPeer) handleICEStateChange(st webrtc.ICEConnectionState) {
-	log.Info().Stringer("state", st).Msg("ICE connection state changed")
+	log.Info().
+		Str("peer", p.name).
+		Stringer("state", st).
+		Msg("ICE connection state changed")
+
 	switch st {
 	case webrtc.ICEConnectionStateConnected:
 		log.Info().Msg("peer connection established")

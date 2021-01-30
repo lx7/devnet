@@ -4,6 +4,7 @@ import (
 	"reflect"
 
 	"github.com/lx7/devnet/proto"
+	"github.com/pion/webrtc/v3"
 	"github.com/rs/zerolog/log"
 )
 
@@ -27,6 +28,7 @@ type DefaultSession struct {
 
 	signal  SignalSendReceiver
 	peers   map[string]Peer
+	config  webrtc.Configuration
 	forward chan *proto.Frame
 
 	h       map[reflect.Type]handler
@@ -55,6 +57,7 @@ func NewSession(self string, signal SignalSendReceiver) (*DefaultSession, error)
 }
 
 func (s *DefaultSession) Run() {
+
 	for {
 		select {
 		case frame := <-s.signal.Receive():
@@ -64,13 +67,20 @@ func (s *DefaultSession) Run() {
 				Stringer("type", reflect.TypeOf(frame.Payload)).
 				Msg("sinaling frame received")
 
-			switch frame.Payload.(type) {
+			switch pl := frame.Payload.(type) {
 			case *proto.Frame_Config:
-				for name, peer := range s.peers {
-					err := peer.HandleSignaling(frame)
-					if err != nil {
-						log.Error().Err(err).Str("peer", name).Msg("configure webrtc")
-					}
+				log.Info().Stringer("config", pl.Config).Msg("config update")
+				if pl.Config.Webrtc == nil {
+					continue
+				}
+				if len(pl.Config.Webrtc.Iceservers) == 0 {
+					continue
+				}
+
+				s.config = webrtc.Configuration{
+					ICEServers: []webrtc.ICEServer{{
+						URLs: []string{pl.Config.Webrtc.Iceservers[0].Url},
+					}},
 				}
 
 			case *proto.Frame_Ice, *proto.Frame_Sdp:
@@ -81,7 +91,12 @@ func (s *DefaultSession) Run() {
 				p, ok := s.peers[frame.Src]
 				if !ok {
 					var err error
-					p, err = NewPeer(frame.Src, s.forward, s.pevents)
+					p, err = NewPeer(PeerOptions{
+						Name:    frame.Src,
+						Config:  s.config,
+						Signals: s.forward,
+						Events:  s.pevents,
+					})
 					if err != nil {
 						log.Error().Err(err).Str("peer", frame.Src).Msg("new peer")
 						continue
@@ -120,10 +135,16 @@ func (s *DefaultSession) Connect(name string) error {
 		p.Close()
 	}
 
-	p, err := NewPeer(name, s.forward, s.pevents)
+	p, err := NewPeer(PeerOptions{
+		Name:    name,
+		Config:  s.config,
+		Signals: s.forward,
+		Events:  s.pevents,
+	})
 	if err != nil {
 		return err
 	}
+
 	p.Connect()
 	s.peers[name] = p
 
