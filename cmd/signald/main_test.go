@@ -22,7 +22,7 @@ func init() {
 	configure("../../configs/signald.yaml")
 }
 
-func TestServerCmd_Config(t *testing.T) {
+func TestSignald_Config(t *testing.T) {
 	// flag defaults
 	exp := "info"
 	if got := conf.GetString("loglevel"); got != exp {
@@ -37,7 +37,7 @@ func TestServerCmd_Config(t *testing.T) {
 
 }
 
-func TestServerCmd_Response(t *testing.T) {
+func TestSignald_Response(t *testing.T) {
 	go run()
 
 	// allow for some startup time

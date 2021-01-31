@@ -2,11 +2,9 @@ package main
 
 import (
 	"fmt"
-	"os"
-	"time"
+	"log/syslog"
 
-	"github.com/lx7/devnet/internal/server"
-
+	"github.com/lx7/devnet/internal/signaling"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	flag "github.com/spf13/pflag"
@@ -16,10 +14,17 @@ import (
 const appName = "devnet"
 
 func init() {
-	log.Logger = log.Output(zerolog.ConsoleWriter{
-		Out:        os.Stderr,
-		TimeFormat: time.RFC3339,
-	})
+	syslog, err := syslog.New(syslog.LOG_WARNING|syslog.LOG_DAEMON, "")
+	if err != nil {
+		log.Fatal().Err(err).Msg("syslog")
+	}
+	log.Logger = log.Output(zerolog.SyslogLevelWriter(syslog))
+	/*
+		log.Logger = log.Output(zerolog.ConsoleWriter{
+			Out:        os.Stderr,
+			TimeFormat: time.RFC3339,
+		})
+	*/
 }
 
 func configure(confpath string) {
@@ -42,7 +47,7 @@ func configure(confpath string) {
 }
 
 func run() {
-	s := server.New(conf.GetViper())
+	s := signaling.NewServer(conf.GetViper())
 	err := s.Serve()
 	if err != nil {
 		log.Fatal().Err(err).Msg("http server")

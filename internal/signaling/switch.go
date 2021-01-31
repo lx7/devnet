@@ -1,4 +1,4 @@
-package server
+package signaling
 
 import (
 	"github.com/lx7/devnet/proto"
