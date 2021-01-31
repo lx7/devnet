@@ -38,7 +38,7 @@ func TestGUI_Events(t *testing.T) {
 	gui, err := New("test.devnet.events", s)
 	assert.NoError(t, err, "constructor should not fail")
 
-	peer := newFakePeer()
+	peer := newFakePeer("peer1")
 
 	// define test cases
 	tests := []struct {
@@ -158,7 +158,7 @@ func (s *fakeRemoteStream) Close() {
 }
 
 type fakePeer struct {
-	id string
+	name string
 
 	videoLocal   *fakeLocalStream
 	videoRemote  *fakeRemoteStream
@@ -168,8 +168,8 @@ type fakePeer struct {
 	screenRemote *fakeRemoteStream
 }
 
-func newFakePeer() *fakePeer {
-	p := &fakePeer{}
+func newFakePeer(name string) *fakePeer {
+	p := &fakePeer{name: name}
 
 	pr1, _ := gst.NewPipeline("videotestsrc ! autovideosink")
 	p.screenRemote = &fakeRemoteStream{
@@ -232,6 +232,10 @@ func (p *fakePeer) HandleSignaling(*proto.Frame) error {
 	return nil
 }
 
+func (p *fakePeer) Name() string {
+	return p.name
+}
+
 func (p *fakePeer) Close() {
 }
 
@@ -244,7 +248,7 @@ type fakeSession struct {
 func newFakeSession() *fakeSession {
 	s := &fakeSession{
 		peers: []*fakePeer{
-			newFakePeer(),
+			newFakePeer("peer1"),
 		},
 		events: make(chan client.Event, 5),
 	}
