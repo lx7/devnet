@@ -5,8 +5,10 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
-	"github.com/pion/turn/v2"
+	"github.com/lx7/devnet/internal/auth"
+	"github.com/lx7/devnet/internal/turn"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	flag "github.com/spf13/pflag"
@@ -14,6 +16,21 @@ import (
 )
 
 const appName = "devnet"
+
+func init() {
+	/*
+			syslog, err := syslog.New(syslog.LOG_WARNING|syslog.LOG_DAEMON, "")
+			if err != nil {
+				log.Fatal().Err(err).Msg("syslog")
+			}
+			log.Logger = log.Output(zerolog.SyslogLevelWriter(syslog))
+		}
+	*/
+	log.Logger = log.Output(zerolog.ConsoleWriter{
+		Out:        os.Stderr,
+		TimeFormat: time.RFC3339,
+	})
+}
 
 func configure(confpath string) {
 	flag.StringP("loglevel", "l", "info", "Log level")
@@ -32,43 +49,25 @@ func configure(confpath string) {
 	} else {
 		zerolog.SetGlobalLevel(ll)
 	}
+
+	err = auth.Configure(conf.Sub("auth"))
+	if err != nil {
+		log.Fatal().Err(err).Msg("configure auth")
+	}
 }
 
 func run() {
-	ip := conf.GetString("turn.ip")
-	port := conf.GetString("turn.port")
+	ip := net.ParseIP(conf.GetString("turn.ip"))
+	port := conf.GetInt("turn.port")
 	realm := conf.GetString("turn.realm")
 
-	if ip == "" {
+	if ip == nil {
 		log.Fatal().Msgf("ip address not configured")
-	} else if port == "" {
+	} else if port == 0 {
 		log.Fatal().Msgf("port not configured")
 	}
 
-	listener, err := net.ListenPacket("udp4", "0.0.0.0:"+port)
-	if err != nil {
-		log.Fatal().Err(err).Msg("failed to create udp listener")
-	}
-
-	s, err := turn.NewServer(turn.ServerConfig{
-		Realm: realm,
-		AuthHandler: func(user string, realm string, srcAddr net.Addr) ([]byte, bool) {
-			key := turn.GenerateAuthKey(user, realm, "pass")
-			if len(key) > 0 {
-				return key, false
-			}
-			return nil, false
-		},
-		PacketConnConfigs: []turn.PacketConnConfig{
-			{
-				PacketConn: listener,
-				RelayAddressGenerator: &turn.RelayAddressGeneratorStatic{
-					RelayAddress: net.ParseIP(ip),
-					Address:      "0.0.0.0",
-				},
-			},
-		},
-	})
+	s, err := turn.NewServer(ip, port, realm)
 	if err != nil {
 		log.Fatal().Err(err).Msg("failed to start turn server")
 	}
