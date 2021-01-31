@@ -48,7 +48,9 @@ func NewServer(conf *viper.Viper) *Server {
 // upgraded to the WebSocket protocol as defined per RFC 6455.
 func (s *Server) Serve() error {
 	wspath := s.conf.GetString("signaling.wspath")
-	log.Info().Msgf("starting server on %v", s.Addr)
+	log.Info().
+		Str("addr", s.Addr).
+		Msg("starting signaling server")
 
 	wg := sync.WaitGroup{}
 	wg.Add(1)
@@ -91,10 +93,10 @@ func (s *Server) Serve() error {
 // Shutdown terminates the http server.
 func (s *Server) Shutdown() {
 	if err := s.Server.Shutdown(context.TODO()); err != nil {
-		log.Error().Err(err).Msg("server shutdown")
+		log.Error().Err(err).Msg("signaling server shutdown")
 	}
 	s.sw.Shutdown()
-	log.Info().Msg("server shutdown complete")
+	log.Info().Msg("signaling server shutdown complete")
 }
 
 func (s *Server) serveWS(w http.ResponseWriter, r *http.Request) {
