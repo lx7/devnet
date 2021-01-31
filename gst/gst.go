@@ -40,6 +40,10 @@ func NewPipeline(desc string) (*Pipeline, error) {
 	return p, nil
 }
 
+func (p *Pipeline) ID() int {
+	return p.id
+}
+
 func (p *Pipeline) SetOverlayHandle(w gtk.IWidget) error {
 	if w == nil {
 		return errors.New("invalid overlay handle: nil")
