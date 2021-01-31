@@ -35,12 +35,16 @@ func NewStreamLocal(c *webrtc.PeerConnection, so *StreamOpts) (*StreamLocal, err
 		track: t,
 	}
 
-	log.Debug().Str("pipeline", so.Pipeline).Msg("new local pipeline")
 	s.pipeline, err = gst.NewPipeline(so.Pipeline)
 	if err != nil {
 		return nil, fmt.Errorf("new pipeline: %v", err)
 	}
 	s.pipeline.HandleSample(s.handleSample)
+
+	log.Debug().
+		Str("pipeline", so.Pipeline).
+		Int("id", s.pipeline.ID()).
+		Msg("new local pipeline")
 
 	return s, nil
 }

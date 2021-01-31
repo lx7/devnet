@@ -29,12 +29,16 @@ func NewStreamRemote(c *webrtc.PeerConnection, so StreamOpts) (*StreamRemote, er
 		id: so.ID,
 	}
 
-	log.Debug().Str("pipeline", so.Pipeline).Msg("new remote pipeline")
 	p, err := gst.NewPipeline(so.Pipeline)
 	if err != nil {
 		return nil, fmt.Errorf("new pipeline: %v", err)
 	}
 	s.pipeline = p
+
+	log.Debug().
+		Str("pipeline", so.Pipeline).
+		Int("id", s.pipeline.ID()).
+		Msg("new remote pipeline")
 
 	return s, nil
 }
