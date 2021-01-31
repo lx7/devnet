@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"encoding/hex"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -21,9 +22,7 @@ func init() {
 		Out:        os.Stderr,
 		TimeFormat: time.RFC3339,
 	})
-}
 
-func init() {
 	conf := viper.New()
 	conf.SetConfigFile("../../configs/signald.yaml")
 	if err := conf.ReadInConfig(); err != nil {
@@ -36,7 +35,7 @@ func init() {
 	}
 }
 
-func TestBasicAuth_Handler(t *testing.T) {
+func TestAuth_BasicAuth_Handler(t *testing.T) {
 	okResponder := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprint(w, "OK")
 	})
@@ -109,7 +108,7 @@ func TestBasicAuth_Handler(t *testing.T) {
 	}
 }
 
-func TestBasicAuth_Header(t *testing.T) {
+func TestAuth_BasicAuthHeader(t *testing.T) {
 	want := make(http.Header)
 	want.Add("Authorization", "Basic dGVzdHVzZXI6dGVzdA==")
 
@@ -117,10 +116,21 @@ func TestBasicAuth_Header(t *testing.T) {
 	assert.Equal(t, want, header)
 }
 
-func TestUserPass(t *testing.T) {
+func TestAuth_UserPass(t *testing.T) {
 	auth := UserPass("testuser", "wrong password")
 	assert.Equal(t, auth, false, "wrong password should not match")
 
 	auth = UserPass("testuser", "test")
 	assert.Equal(t, auth, true, "right password should match")
+}
+
+func TestAuth_UserAuthKey(t *testing.T) {
+	key, err := UserAuthKey("unknown user", "devnet.test")
+	assert.Error(t, err, "unknown user should cause an error")
+	assert.Nil(t, key, "should return nil for unknown user")
+
+	key, err = UserAuthKey("testuser", "devnet.test")
+	assert.NoError(t, err, "known user should not cause an error")
+	want, _ := hex.DecodeString("dcadec4f59a9793b5ebd7e278dd4f28a")
+	assert.Equal(t, want, key, "key should match")
 }

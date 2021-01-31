@@ -3,6 +3,7 @@ package auth
 import (
 	"crypto/sha256"
 	"encoding/base64"
+	"encoding/hex"
 	"fmt"
 	"net/http"
 
@@ -13,6 +14,7 @@ import (
 type User struct {
 	Name string
 	Hash string
+	Key  string
 }
 
 // TODO: use external auth provider
@@ -73,4 +75,19 @@ func BasicAuthHeader(user, pass string) http.Header {
 	header := make(http.Header)
 	header.Add("Authorization", "Basic "+auth)
 	return header
+}
+
+// UserAuthKey returns auth keys in the format used by pion/turn
+// TODO: implement handling for multiple realms
+func UserAuthKey(user string, realm string) ([]byte, error) {
+	u, ok := userMap[user]
+	if !ok {
+		return nil, fmt.Errorf("user not found")
+	}
+
+	data, err := hex.DecodeString(u.Key)
+	if err != nil {
+		return nil, err
+	}
+	return data, nil
 }
