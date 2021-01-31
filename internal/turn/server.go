@@ -7,6 +7,7 @@ import (
 
 	"github.com/lx7/devnet/internal/auth"
 	"github.com/pion/turn/v2"
+	"github.com/rs/zerolog/log"
 )
 
 type Server struct {
@@ -18,6 +19,11 @@ type Server struct {
 }
 
 func NewServer(ip net.IP, port int, realm string) (*Server, error) {
+	log.Info().
+		Stringer("ip", ip).
+		Int("port", port).
+		Msg("starting turn server")
+
 	listener, err := net.ListenPacket("udp4", "0.0.0.0:"+strconv.Itoa(port))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create udp listener: %v", err)
@@ -50,9 +56,20 @@ func NewServer(ip net.IP, port int, realm string) (*Server, error) {
 	return s, nil
 }
 
-func (s *Server) auth(user string, realm string, srcAddr net.Addr) ([]byte, bool) {
-	key, err := auth.UserAuthKey(user, realm)
-	if err != nil || key == nil {
+func (s *Server) Close() error {
+	err := s.Server.Close()
+	if err != nil {
+		log.Error().Err(err).Msg("turn server shutdown")
+		return err
+	}
+	log.Info().Msg("turn server shutdown complete")
+	return nil
+}
+
+func (s *Server) auth(u string, realm string, src net.Addr) ([]byte, bool) {
+	key, err := auth.UserAuthKey(u, realm)
+	if err != nil {
+		log.Warn().Err(err).Msg("authentication failed")
 		return nil, false
 	}
 	return key, true
