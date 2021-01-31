@@ -47,7 +47,7 @@ func init() {
 
 func TestServer_Echo(t *testing.T) {
 	// run server
-	s := New(conf)
+	s := NewServer(conf)
 	wg := sync.WaitGroup{}
 	wg.Add(1)
 	go func() {
@@ -123,7 +123,7 @@ func TestServer_Echo(t *testing.T) {
 
 func TestServer_WSHandler(t *testing.T) {
 	// create new server instance
-	s := New(conf)
+	s := NewServer(conf)
 
 	tests := []struct {
 		desc     string
@@ -176,7 +176,7 @@ func TestServer_WSHandler(t *testing.T) {
 
 func TestServer_OKHandler(t *testing.T) {
 	// create new server instance
-	s := New(conf)
+	s := NewServer(conf)
 
 	tests := []struct {
 		desc     string
@@ -210,7 +210,7 @@ func TestServer_OKHandler(t *testing.T) {
 
 func TestServer_AuthRequest(t *testing.T) {
 	// run server
-	s := New(conf)
+	s := NewServer(conf)
 	wg := sync.WaitGroup{}
 	wg.Add(1)
 	go func() {

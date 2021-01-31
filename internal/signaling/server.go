@@ -23,8 +23,8 @@ type Server struct {
 	sw       Switch
 }
 
-// New returns a new Server instance.
-func New(conf *viper.Viper) *Server {
+// NewServer returns a new Server instance.
+func NewServer(conf *viper.Viper) *Server {
 	auth.Configure(conf.Sub("auth"))
 
 	s := &Server{
