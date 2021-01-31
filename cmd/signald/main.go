@@ -2,7 +2,8 @@ package main
 
 import (
 	"fmt"
-	"log/syslog"
+	"os"
+	"time"
 
 	"github.com/lx7/devnet/internal/signaling"
 	"github.com/rs/zerolog"
@@ -14,17 +15,18 @@ import (
 const appName = "devnet"
 
 func init() {
-	syslog, err := syslog.New(syslog.LOG_WARNING|syslog.LOG_DAEMON, "")
-	if err != nil {
-		log.Fatal().Err(err).Msg("syslog")
-	}
-	log.Logger = log.Output(zerolog.SyslogLevelWriter(syslog))
 	/*
-		log.Logger = log.Output(zerolog.ConsoleWriter{
-			Out:        os.Stderr,
-			TimeFormat: time.RFC3339,
-		})
+			syslog, err := syslog.New(syslog.LOG_WARNING|syslog.LOG_DAEMON, "")
+			if err != nil {
+				log.Fatal().Err(err).Msg("syslog")
+			}
+			log.Logger = log.Output(zerolog.SyslogLevelWriter(syslog))
+		}
 	*/
+	log.Logger = log.Output(zerolog.ConsoleWriter{
+		Out:        os.Stderr,
+		TimeFormat: time.RFC3339,
+	})
 }
 
 func configure(confpath string) {
