@@ -38,11 +38,19 @@ func TestPeer(t *testing.T) {
 	c2 := make(chan *proto.Frame, 5)
 	done := make(chan bool)
 
-	p1, err := NewPeer("peer1", c1, events)
+	p1, err := NewPeer(PeerOptions{
+		Name:    "peer1",
+		Signals: c1,
+		Events:  events,
+	})
 	require.NoError(t, err)
 	go p1.Run()
 
-	p2, err := NewPeer("peer2", c2, events)
+	p2, err := NewPeer(PeerOptions{
+		Name:    "peer2",
+		Signals: c2,
+		Events:  events,
+	})
 	require.NoError(t, err)
 	go p2.Run()
 
