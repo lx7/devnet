@@ -1,5 +1,5 @@
 signaling:
-  url: wss://signald:8443/channel
+  url: wss://signald:8080/channel
 auth:
   user: user1
   pass: test                             

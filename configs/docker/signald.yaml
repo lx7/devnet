@@ -1,7 +1,7 @@
 signaling:
-  addr: ":8443"
+  addr: ":8080"
   wspath: "/channel"
-  tls: true
+  tls: false
   tls_crt: /etc/ssl/localhost-signald.crt
   tls_key: /etc/ssl/private/localhost-signald.key
 auth:

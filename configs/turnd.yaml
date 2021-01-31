@@ -1,9 +1,7 @@
-signaling:
-  addr: ":8443"
-  wspath: "/channel"
-  tls: false
-  tls_crt: /etc/ssl/DOMAIN.TLD.crt
-  tls_key: /etc/ssl/private/DOMAIN.TLD.key
+turn:
+  ip: "0.0.0.0"
+  port: "3478"
+  realm: "devnet.test"
 auth:
   users:
     - name: user1
@@ -15,12 +13,5 @@ auth:
     - name: testuser
       hash: 09d9623a149a4a0c043befcb448c9c3324be973230188ba412c008a2929f31d0
       key:  dcadec4f59a9793b5ebd7e278dd4f28a
-channels:
-  - name: Lobby
-    desc: This is the lobby.
-    hash: bef8ef72b9935ed7709f700f6a78a84a217b5714238316136156e28333251552
-    default: true
-client:
-  webrtc:
-    iceservers:
-      - url: stun:127.0.0.1:19302
+
+
