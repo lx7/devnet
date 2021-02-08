@@ -61,14 +61,14 @@ static gboolean draw_cb (GtkWidget *widget, cairo_t *cr, PipelineData *data) {
         }
     }
     
+    /*
     if (data->state <= GST_STATE_PAUSED) {
-        /*
         gst_video_overlay_set_render_rectangle (data->overlay, 0, 0, 1, 1);
         cairo_set_source_rgb (cr, 0, 0, 0);
         cairo_rectangle (cr, 0, 0, al.width, al.height);
         cairo_fill (cr);
-        */
     }
+    */
 
     return FALSE;
 }

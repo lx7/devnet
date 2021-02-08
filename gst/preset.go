@@ -15,6 +15,7 @@ type hwCodec string
 
 const (
 	NoHardware hwCodec = ""
+	Auto       hwCodec = "auto"
 	VAAPI      hwCodec = "vaapi"
 	NVCODEC    hwCodec = "nvcodec"
 	VDPAU      hwCodec = "vdpau"
@@ -37,6 +38,8 @@ type Preset struct {
 
 func NewHardwareCodec(s string) hwCodec {
 	switch strings.ToLower(s) {
+	case string(Auto):
+		return Auto
 	case string(VAAPI):
 		return VAAPI
 	case string(NVCODEC):

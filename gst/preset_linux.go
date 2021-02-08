@@ -6,7 +6,7 @@ package gst
 var presets = []Preset{
 	Preset{
 		MimeType: MimeTypeH264,
-		HW:       NoHardware,
+		HW:       Auto,
 		Source:   Camera,
 		Local: `    
 			v4l2src 
@@ -41,6 +41,47 @@ var presets = []Preset{
 			! decodebin
 			! videoconvert 
 			! autovideosink sync=false
+			`,
+	},
+	Preset{
+		MimeType: MimeTypeH264,
+		HW:       NoHardware,
+		Source:   Camera,
+		Local: `    
+			v4l2src 
+    		! video/x-raw,width=640,height=360 
+    		! videorate 
+    		! video/x-raw,framerate=15/1 
+    		! queue 
+    		! videoconvert 
+    		! video/x-raw,format=I420
+   			! aspectratiocrop aspect-ratio=16/10
+			
+			! tee name=encode
+    			! queue
+    			! videoflip method=horizontal-flip
+				! xvimagesink 
+
+			encode.
+				! queue 
+				! x264enc 
+					speed-preset=ultrafast 
+					tune=zerolatency 
+					key-int-max=20 
+					bitrate=500
+				! video/x-h264,stream-format=byte-stream,profile=high 
+				! appsink name=sink
+			`,
+		Remote: `
+			appsrc name=src format=time is-live=true do-timestamp=true
+			! application/x-rtp
+			! rtph264depay 
+    		! queue 
+			! h264parse
+			! avdec_h264
+			! queue
+			! videoconvert
+			! xvimagesink 
 			`,
 	},
 	Preset{
