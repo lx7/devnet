@@ -104,6 +104,7 @@ func (g *GUI) onSessionEvent(e client.Event) {
 		g.peer = e.Peer
 		execOnMain(func() {
 			g.mainWindow.detailsBox.Show()
+			g.onCameraButtonToggle(g.mainWindow.cameraButton)
 		})
 	case client.EventPeerDisconnected:
 		execOnMain(func() { g.mainWindow.detailsBox.Hide() })

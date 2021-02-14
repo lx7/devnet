@@ -157,6 +157,12 @@ func (s *fakeRemoteStream) Receive(*webrtc.TrackRemote) {
 func (s *fakeRemoteStream) Close() {
 }
 
+func (s *fakeRemoteStream) Pause() {
+}
+
+func (s *fakeRemoteStream) Unpause() {
+}
+
 type fakePeer struct {
 	name string
 

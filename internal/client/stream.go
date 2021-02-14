@@ -21,6 +21,8 @@ type Stream interface {
 type StreamReceiver interface {
 	Stream
 	Receive(*webrtc.TrackRemote)
+	Unpause()
+	Pause()
 }
 
 type StreamSender interface {

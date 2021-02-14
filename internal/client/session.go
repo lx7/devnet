@@ -2,10 +2,12 @@ package client
 
 import (
 	"reflect"
+	"strings"
 
 	"github.com/lx7/devnet/proto"
 	"github.com/pion/webrtc/v3"
 	"github.com/rs/zerolog/log"
+	conf "github.com/spf13/viper"
 )
 
 const (
@@ -77,10 +79,18 @@ func (s *DefaultSession) Run() {
 					continue
 				}
 
+				// TODO: Implement. This is for the prototype only.
+				servers := pl.Config.Webrtc.ICEServers()
+				for i := range servers {
+					if !strings.Contains(servers[i].URLs[0], "devnet") {
+						continue
+					}
+					servers[i].Username = conf.GetString("auth.user")
+					servers[i].Credential = conf.GetString("auth.pass")
+					servers[i].CredentialType = webrtc.ICECredentialTypePassword
+				}
 				s.config = webrtc.Configuration{
-					ICEServers: []webrtc.ICEServer{{
-						URLs: []string{pl.Config.Webrtc.Iceservers[0].Url},
-					}},
+					ICEServers: servers,
 				}
 
 			case *proto.Frame_Ice, *proto.Frame_Sdp:
@@ -120,6 +130,8 @@ func (s *DefaultSession) Run() {
 			case EventPeerConnected, EventStreamStart, EventStreamEnd:
 				s.sevents <- e
 			case EventPeerDisconnected:
+				s.sevents <- e
+			case EventPeerClosed:
 				delete(s.peers, e.Peer.Name())
 				s.sevents <- e
 			}

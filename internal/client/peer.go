@@ -270,10 +270,11 @@ func (p *DefaultPeer) handleICEStateChange(st webrtc.ICEConnectionState) {
 		p.events <- EventPeerConnected{Peer: p}
 		return
 	case webrtc.ICEConnectionStateDisconnected:
-		p.Close()
 		p.events <- EventPeerDisconnected{Peer: p}
+		p.Close()
 	case webrtc.ICEConnectionStateFailed:
 	case webrtc.ICEConnectionStateClosed:
+		p.events <- EventPeerClosed{Peer: p}
 	}
 }
 

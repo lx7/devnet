@@ -47,7 +47,11 @@ func (dc *DataChannel) Receive() <-chan *proto.Frame {
 }
 
 func (dc *DataChannel) Close() error {
-	close(dc.done)
+	select {
+	case <-dc.done:
+	default:
+		close(dc.done)
+	}
 	return nil
 }
 

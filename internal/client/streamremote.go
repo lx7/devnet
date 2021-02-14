@@ -22,6 +22,7 @@ type StreamRemote struct {
 	pipeline  *gst.Pipeline
 	lastframe time.Time
 	active    bool
+	discard   bool
 }
 
 func NewStreamRemote(c *webrtc.PeerConnection, so StreamOpts) (*StreamRemote, error) {
@@ -80,6 +81,9 @@ func (s *StreamRemote) Receive(t *webrtc.TrackRemote) {
 		} else if err != nil {
 			log.Error().Err(err).Msg("reading track buffer")
 		}
+		if s.discard {
+			continue
+		}
 
 		if !s.active {
 			s.pipeline.Start()
@@ -88,6 +92,14 @@ func (s *StreamRemote) Receive(t *webrtc.TrackRemote) {
 		s.pipeline.Push(buf[:i])
 		s.lastframe = time.Now()
 	}
+}
+
+func (s *StreamRemote) Pause() {
+	s.discard = true
+}
+
+func (s *StreamRemote) Unpause() {
+	s.discard = false
 }
 
 func (s *StreamRemote) Close() {

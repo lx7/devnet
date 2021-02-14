@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/lx7/devnet/internal/server"
+	"github.com/lx7/devnet/internal/signaling"
 	"github.com/lx7/devnet/internal/testutil"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
@@ -71,7 +71,7 @@ func TestClientCmd_Run(t *testing.T) {
 		log.Fatal().Err(err).Msg("failed to read server config")
 	}
 	sconf.Set("signaling.addr", "127.0.0.1:40101")
-	s := server.New(sconf)
+	s := signaling.NewServer(sconf)
 	go s.Serve()
 	time.Sleep(100 * time.Millisecond)
 

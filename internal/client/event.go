@@ -23,8 +23,13 @@ type EventPeerConnected struct {
 	Peer Peer
 }
 
-// EventPeerDisconnected occurs when a peer connection has been closed.
+// EventPeerDisconnected occurs when a peer has been disconnected.
 type EventPeerDisconnected struct {
+	Peer Peer
+}
+
+// EventPeerDisconnected occurs when a peer session has been closed.
+type EventPeerClosed struct {
 	Peer Peer
 }
 
